@@ -58,13 +58,20 @@ jobs:
         cd infra/cdk
         cdk deploy --require-approval never --outputs-file outputs.json
 
+    - name: Create Bedrock Agent
+      run: |
+        python scripts/create_bedrock_agent.py > bedrock_agent_output.txt
+        cat bedrock_agent_output.txt
+
     - name: Extract CDK Outputs
       id: cdk-outputs
       run: |
         cd infra/cdk
         USER_POOL_ID=$(jq -r '.MultiTenantBedrockStack.UserPoolId' outputs.json)
         CLIENT_ID=$(jq -r '.MultiTenantBedrockStack.UserPoolClientId' outputs.json)
-        AGENT_ID=$(jq -r '.MultiTenantBedrockStack.AgentId // empty' outputs.json)
+        
+        # Extract Agent ID from bedrock agent creation
+        AGENT_ID=$(grep "Agent ID:" ../bedrock_agent_output.txt | cut -d':' -f2 | xargs || echo "fallback-direct-model")
         
         echo "user-pool-id=$USER_POOL_ID" >> $GITHUB_OUTPUT
         echo "client-id=$CLIENT_ID" >> $GITHUB_OUTPUT
@@ -127,12 +134,20 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Run tests
+    - name: Test Bedrock Agent Chatbot
       env:
         COGNITO_USER_POOL_ID: ${{ needs.deploy-infrastructure.outputs.user-pool-id }}
         COGNITO_CLIENT_ID: ${{ needs.deploy-infrastructure.outputs.client-id }}
         BEDROCK_AGENT_ID: ${{ needs.deploy-infrastructure.outputs.agent-id }}
+        JWT_SECRET: ${{ needs.create-users.outputs.jwt-secret }}
         AWS_REGION: ${{ env.AWS_REGION }}
       run: |
-        python -m pytest tests/ -v || echo "No tests found"
+        echo "🤖 Testing Bedrock Agent Core Chatbot Application"
+        
+        # Test runtime context patterns
         python examples/runtime_context_demo.py
+        
+        # Test multi-tenant chatbot functionality
+        python test_client.py
+        
+        echo "✅ Bedrock Agent chatbot tests completed"

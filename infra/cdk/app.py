@@ -3,7 +3,6 @@ import aws_cdk as cdk
 from constructs import Construct
 from aws_cdk import (
     Stack,
-    aws_bedrock as bedrock,
     aws_dynamodb as dynamodb,
     aws_cognito as cognito,
     aws_iam as iam,
@@ -11,7 +10,6 @@ from aws_cdk import (
     CfnOutput,
     RemovalPolicy
 )
-from .bedrock_agents import BedrockAgentsConstruct
 
 class MultiTenantBedrockStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
@@ -117,24 +115,17 @@ class MultiTenantBedrockStack(Stack):
             )
         )
 
-        # Bedrock Agents
-        self.bedrock_agents = BedrockAgentsConstruct(self, "BedrockAgents")
+        # Note: Bedrock Agents will be created manually or via AWS CLI
+        # CDK doesn't have native Bedrock Agent support yet
         
-        # Optional: Lambda deployment
-        # from .lambda_deployment import LambdaDeploymentConstruct
-        # self.lambda_app = LambdaDeploymentConstruct(
-        #     self, "LambdaApp",
-        #     user_pool_id=self.user_pool.user_pool_id,
-        #     client_id=self.user_pool_client.user_pool_client_id,
-        #     agent_id=self.bedrock_agents.agent.attr_agent_id
-        # )
-        
+        # Outputs
         # Outputs
         CfnOutput(self, "UserPoolId", value=self.user_pool.user_pool_id)
         CfnOutput(self, "UserPoolClientId", value=self.user_pool_client.user_pool_client_id)
         CfnOutput(self, "SessionsTableName", value=self.sessions_table.table_name)
         CfnOutput(self, "UsageTableName", value=self.usage_table.table_name)
         CfnOutput(self, "AppRoleArn", value=self.app_role.role_arn)
+        CfnOutput(self, "AgentId", value="manual-agent-setup-required")
 
 app = cdk.App()
 MultiTenantBedrockStack(app, "MultiTenantBedrockStack")
