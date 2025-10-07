@@ -10,7 +10,7 @@ from .dynamodb_store import DynamoDBStore
 from .auth import get_current_user
 from .runtime_context import RuntimeContextManager
 from .subscription_service import SubscriptionService
-from .mcp_service import MCPClient
+from .weather_mcp_service import WeatherMCPClient
 from .mcp_agent_integration import MCPAgentCoreIntegration
 
 app = FastAPI(title="Multi-Tenant Bedrock Chat", version="1.0.0")
@@ -18,7 +18,7 @@ app = FastAPI(title="Multi-Tenant Bedrock Chat", version="1.0.0")
 # Initialize services
 store = DynamoDBStore()
 subscription_service = SubscriptionService(store)
-mcp_client = MCPClient()
+weather_client = WeatherMCPClient()
 
 # Bedrock Agent configuration
 AGENT_ID = os.getenv("BEDROCK_AGENT_ID", "BAUOKJ4UDH")
@@ -29,7 +29,7 @@ bedrock_service = BedrockAgentService(AGENT_ID, AGENT_ALIAS_ID)
 agentic_service = AgenticService(AGENT_ID, AGENT_ALIAS_ID)
 
 # Initialize MCP-Agent Core integration
-mcp_agent_integration = MCPAgentCoreIntegration(agentic_service, mcp_client)
+mcp_agent_integration = MCPAgentCoreIntegration(agentic_service)
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(message: ChatMessage, current_user: dict = Depends(get_current_user)):
@@ -63,7 +63,7 @@ async def chat(message: ChatMessage, current_user: dict = Depends(get_current_us
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Always use MCP-Agent Core integration for proper tool handling
+    # Use MCP-Agent Core integration for weather tools
     result = await mcp_agent_integration.invoke_agent_with_mcp_tools(
         message.message, message.tenant_context, tier
     )
@@ -157,28 +157,30 @@ async def get_subscription_info(tenant_id: str, current_user: dict = Depends(get
         "limit_status": usage_limits
     }
 
-@app.post("/api/mcp/tools/{tool_name}")
-async def execute_mcp_tool(tool_name: str, arguments: dict, current_user: dict = Depends(get_current_user)):
-    """Execute MCP tool if subscription tier allows it"""
+
+
+@app.get("/api/mcp/weather/tools")
+async def get_available_weather_tools(current_user: dict = Depends(get_current_user)):
+    """Get available weather MCP tools for current subscription tier"""
+    tier = current_user["subscription_tier"]
+    weather_tools = await weather_client.get_available_weather_tools(tier)
+    
+    return {
+        "subscription_tier": tier.value,
+        "weather_tools": weather_tools
+    }
+
+@app.post("/api/mcp/weather/{tool_name}")
+async def execute_weather_mcp_tool(tool_name: str, arguments: dict, current_user: dict = Depends(get_current_user)):
+    """Execute weather MCP tool if subscription tier allows it"""
     tier = current_user["subscription_tier"]
     
-    result = await mcp_client.execute_mcp_tool(tool_name, arguments, tier)
+    result = await weather_client.execute_weather_tool(tool_name, arguments, tier)
     
     return {
         "tool_name": tool_name,
         "subscription_tier": tier.value,
         "result": result
-    }
-
-@app.get("/api/mcp/tools")
-async def get_available_mcp_tools(current_user: dict = Depends(get_current_user)):
-    """Get available MCP tools for current subscription tier"""
-    tier = current_user["subscription_tier"]
-    tools = await mcp_client.get_available_tools(tier)
-    
-    return {
-        "subscription_tier": tier.value,
-        "available_tools": tools
     }
 
 @app.get("/api/tenants/{tenant_id}/sessions")

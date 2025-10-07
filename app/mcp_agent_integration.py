@@ -3,25 +3,26 @@ MCP-Agent Core Integration Service
 Integrates Model Context Protocol with AWS Bedrock Agent Core runtime capabilities
 """
 import json
+import re
 from typing import Dict, Any, List, Optional
 from app.models import TenantContext, SubscriptionTier
-from app.mcp_service import MCPClient
+from app.weather_mcp_service import WeatherMCPClient
 from app.agentic_service import AgenticService
 from app.runtime_context import RuntimeContextManager
 
 class MCPAgentCoreIntegration:
     """Integrates MCP tools as Agent Core action groups"""
     
-    def __init__(self, agentic_service: AgenticService, mcp_client: MCPClient):
+    def __init__(self, agentic_service: AgenticService):
         self.agentic_service = agentic_service
-        self.mcp_client = mcp_client
+        self.weather_client = WeatherMCPClient()
         
     async def invoke_agent_with_mcp_tools(self, message: str, tenant_context: TenantContext, 
                                         subscription_tier: SubscriptionTier) -> Dict[str, Any]:
         """Invoke Agent Core with MCP tools available as action groups"""
         
-        # Get available MCP tools for this tier
-        available_tools = await self.mcp_client.get_available_tools(subscription_tier)
+        # Get available weather MCP tools for this tier
+        weather_tools = await self.weather_client.get_available_weather_tools(subscription_tier)
         
         # Build enhanced session attributes with MCP context
         session_attributes = RuntimeContextManager.build_session_attributes(
@@ -29,10 +30,9 @@ class MCPAgentCoreIntegration:
             tenant_context.user_id,
             tenant_context.session_id,
             additional_context={
-                "mcp_tools_enabled": "true" if available_tools else "false",
-                "available_mcp_tools": ",".join(available_tools),
-                "subscription_tier": subscription_tier.value,
-                "tier_capabilities": self._get_tier_capabilities(subscription_tier)
+                "weather_tools_enabled": "true" if weather_tools else "false",
+                "available_weather_tools": ",".join(weather_tools),
+                "subscription_tier": subscription_tier.value
             }
         )
         
@@ -42,138 +42,18 @@ class MCPAgentCoreIntegration:
             tenant_context.user_id,
             message_context={
                 "user_subscription_tier": subscription_tier.value,
-                "available_tools": ", ".join(available_tools) if available_tools else "none",
-                "instruction": f"You have access to these tools: {', '.join(available_tools)}. Use get_tier_info when users ask about subscription details."
+                "available_weather_tools": ", ".join(weather_tools) if weather_tools else "none"
             }
         )
         
-        # Check for subscription or usage queries and inject MCP data
-        if (self._is_subscription_query(message) or self._is_usage_query(message)) and available_tools:
-            # Get both tier info and usage analytics
-            tier_result = await self.mcp_client.execute_mcp_tool(
-                "get_tier_info",
-                {"tier": subscription_tier.value},
-                subscription_tier
-            )
-            
-            # Get actual usage data from subscription service
-            from app.subscription_service import SubscriptionService
-            from app.dynamodb_store import DynamoDBStore
-            store = DynamoDBStore()
-            subscription_service = SubscriptionService(store)
-            usage_data = await subscription_service.get_usage(tenant_context.tenant_id, subscription_tier)
-            
-            # Build comprehensive data for agent
-            if "result" in tier_result and "tier_info" in tier_result["result"]:
-                tier_info = tier_result["result"]["tier_info"]
-                enhanced_message = f"""
-User Question: {message}
-
-Complete Subscription & Usage Information:
-
-SUBSCRIPTION DETAILS:
-- Plan: {tier_info['name']} ({tier_info['price']})
-- Daily Limit: {tier_info['daily_messages']} messages
-- Monthly Limit: {tier_info['monthly_messages']} messages
-- Features: {', '.join(tier_info['features'])}
-
-CURRENT USAGE (REAL DATA):
-- Daily Usage: {usage_data.daily_usage}/{tier_info['daily_messages']} messages
-- Monthly Usage: {usage_data.monthly_usage}/{tier_info['monthly_messages']} messages
-- Active Sessions: {usage_data.active_sessions}
-- Last Reset: {usage_data.last_reset_date.strftime('%Y-%m-%d')}
-
-Please provide an accurate response using this REAL usage data, not estimated numbers."""
-            else:
-                enhanced_message = f"""
-User Question: {message}
-
-Subscription: {subscription_tier.value.upper()} tier
-Daily Usage: {usage_data.daily_usage} messages
-Monthly Usage: {usage_data.monthly_usage} messages
-
-Please provide an accurate response using this real usage data."""
-            
-            # Invoke Agent Core with enhanced message
-            agent_result = self.agentic_service.invoke_agent_with_planning(
-                enhanced_message, tenant_context
-            )
-            
-            # Add MCP integration info
-            agent_result["mcp_integration"] = {
-                "tool_used": "get_tier_info_and_usage",
-                "tool_result": {"tier": tier_result, "usage": usage_data.dict()},
-                "integration_success": True
-            }
-            
-            return agent_result
-        
+        # Check for weather queries and handle with MCP tools
+        if self._is_weather_query(message) and weather_tools:
+            return await self._handle_weather_query(message, tenant_context, subscription_tier)
         else:
             # Standard Agent Core invocation
             return self.agentic_service.invoke_agent_with_planning(message, tenant_context)
     
-    def _parse_mcp_tool_request(self, message: str, available_tools: List[str]) -> Optional[Dict[str, Any]]:
-        """Parse message to detect MCP tool requests"""
-        message_lower = message.lower()
-        
-        # Enhanced pattern matching for MCP tool requests
-        tool_patterns = {
-            "get_tier_info": [
-                "subscription details", "subscription info", "tier info", "my plan", 
-                "plan details", "what is my subscription", "my subscription", 
-                "subscription tier", "current plan", "account details"
-            ],
-            "upgrade_tier": ["upgrade", "change plan", "upgrade tier", "premium"],
-            "get_usage_analytics": ["usage", "analytics", "statistics", "metrics"],
-            "manage_limits": ["increase limit", "manage limit", "change limit"]
-        }
-        
-        for tool_name in available_tools:
-            if tool_name in tool_patterns:
-                for pattern in tool_patterns[tool_name]:
-                    if pattern in message_lower:
-                        return {
-                            "tool_name": tool_name,
-                            "arguments": self._extract_tool_arguments(message, tool_name),
-                            "confidence": 0.8
-                        }
-        
-        return None
-    
-    def _extract_tool_arguments(self, message: str, tool_name: str) -> Dict[str, Any]:
-        """Extract arguments for MCP tool from message"""
-        args = {}
-        
-        if tool_name == "get_tier_info":
-            args = {"tier": "current"}
-        elif tool_name == "upgrade_tier":
-            if "premium" in message.lower():
-                args = {"new_tier": "premium"}
-            elif "advanced" in message.lower():
-                args = {"new_tier": "advanced"}
-            else:
-                args = {"new_tier": "premium"}  # Default upgrade target
-        elif tool_name == "get_usage_analytics":
-            args = {"tenant_id": "current", "period": "current_month"}
-        elif tool_name == "manage_limits":
-            if "increase" in message.lower():
-                args = {"action": "increase", "limit_type": "daily"}
-            else:
-                args = {"action": "view", "limit_type": "all"}
-        
-        return args
-    
-    def _build_enhanced_message(self, original_message: str, mcp_result: Dict[str, Any], 
-                              mcp_request: Dict[str, Any]) -> str:
-        """Build enhanced message with MCP result for Agent Core"""
-        
-        mcp_context = f"""
-        MCP Tool Executed: {mcp_request['tool_name']}
-        MCP Result: {json.dumps(mcp_result, indent=2)}
-        
-        Original User Message: {original_message}
-        
-        Please provide a comprehensive response based on the MCP tool result and the user's request.
+se based on the MCP tool result and the user's request.
         """
         
         return mcp_context
@@ -204,33 +84,110 @@ Please provide an accurate response using this real usage data."""
         
         return agent_result
     
-    def _get_tier_capabilities(self, tier: SubscriptionTier) -> str:
-        """Get tier capabilities description for prompt context"""
-        capabilities = {
-            SubscriptionTier.BASIC: "Basic chat capabilities only",
-            SubscriptionTier.ADVANCED: "Advanced features including MCP tools, analytics, and extended sessions",
-            SubscriptionTier.PREMIUM: "Full premium features with unlimited access to all MCP tools and advanced analytics"
+
+    
+
+    
+    def _is_weather_query(self, message: str) -> bool:
+        """Check if message is asking about weather"""
+        weather_keywords = [
+            "weather", "temperature", "forecast", "rain", "sunny", "cloudy",
+            "wind", "humidity", "storm", "snow", "hot", "cold", "climate"
+        ]
+        message_lower = message.lower()
+        return any(keyword in message_lower for keyword in weather_keywords)
+    
+    async def _handle_weather_query(self, message: str, tenant_context: TenantContext, subscription_tier: SubscriptionTier) -> Dict[str, Any]:
+        """Handle weather queries using real-time MCP weather tools"""
+        
+        # Parse weather request with improved location extraction
+        weather_request = self._parse_weather_request(message)
+        
+        # Determine weather tool based on query intent
+        tool_name = "get_current_weather"  # default
+        if any(word in message.lower() for word in ["forecast", "tomorrow", "next", "days", "week"]):
+            tool_name = "get_weather_forecast"
+        elif any(word in message.lower() for word in ["alert", "warning", "advisory", "severe"]):
+            tool_name = "get_weather_alerts"
+        
+        # Execute real-time weather MCP tool
+        mcp_result = await self.weather_client.execute_weather_tool(
+            tool_name,
+            weather_request,
+            subscription_tier
+        )
+        
+        # Handle MCP tool errors gracefully
+        if "error" in mcp_result:
+            enhanced_message = f"""
+User asked about weather: {message}
+
+There was an issue getting weather data: {mcp_result['error']}
+
+Please apologize and suggest the user try again or check their location spelling."""
+        else:
+            # Format real-time weather data for Agent Core
+            weather_data = mcp_result.get('result', {})
+            enhanced_message = f"""
+User asked about weather: {message}
+
+Real-time weather data from OpenWeatherMap API:
+{json.dumps(weather_data, indent=2)}
+
+Please provide a helpful, conversational response about the weather using this real-time data. 
+Make it natural and informative, highlighting key details like temperature, conditions, and any notable weather patterns."""
+        
+        # Invoke Agent Core with real weather context
+        agent_result = self.agentic_service.invoke_agent_with_planning(
+            enhanced_message, tenant_context
+        )
+        
+        # Add MCP integration metadata
+        agent_result["mcp_integration"] = {
+            "tool_used": tool_name,
+            "tool_result": mcp_result,
+            "real_time_data": True,
+            "data_source": "OpenWeatherMap API",
+            "integration_success": "error" not in mcp_result
         }
-        return capabilities.get(tier, "Unknown tier")
+        
+        return agent_result
     
-    def _is_subscription_query(self, message: str) -> bool:
-        """Check if message is asking about subscription details"""
-        subscription_keywords = [
-            "subscription", "plan", "tier", "billing", "account", 
-            "limits", "features", "pricing", "details",
-            "what is my", "my plan", "current plan", "subscription details"
-        ]
+    def _parse_weather_request(self, message: str) -> Dict[str, Any]:
+        """Parse weather request to extract location and parameters with improved accuracy"""
+        import re
+        
+        args = {"location": "New York"}  # Default location
         message_lower = message.lower()
-        return any(keyword in message_lower for keyword in subscription_keywords)
-    
-    def _is_usage_query(self, message: str) -> bool:
-        """Check if message is asking about usage statistics"""
-        usage_keywords = [
-            "usage", "used", "messages", "how many", "count", 
-            "sent", "remaining", "left", "consumed", "statistics"
+        
+        # Enhanced location extraction
+        # Look for "in [location]" or "for [location]" patterns
+        location_patterns = [
+            r'\b(?:in|for|at|near)\s+([a-zA-Z\s,]+?)(?:\s|$|\?|!)',
+            r'\b([A-Z][a-zA-Z\s]+(?:,\s*[A-Z][A-Z])?)\b'  # Capitalized locations
         ]
-        message_lower = message.lower()
-        return any(keyword in message_lower for keyword in usage_keywords)
+        
+        for pattern in location_patterns:
+            matches = re.findall(pattern, message)
+            if matches:
+                location = matches[0].strip().rstrip(',').title()
+                # Filter out common weather words
+                weather_words = ['Weather', 'Temperature', 'Forecast', 'Today', 'Tomorrow']
+                if location not in weather_words and len(location) > 2:
+                    args["location"] = location
+                    break
+        
+        # Enhanced forecast days parsing
+        if re.search(r'\b(?:3|three)\s*days?\b', message_lower):
+            args["days"] = 3
+        elif re.search(r'\b(?:5|five)\s*days?\b', message_lower):
+            args["days"] = 5
+        elif re.search(r'\b(?:7|seven)\s*days?|week\b', message_lower):
+            args["days"] = 5  # OpenWeatherMap free tier max
+        elif 'tomorrow' in message_lower:
+            args["days"] = 2
+        
+        return args
     
     def _format_subscription_response(self, mcp_result: Dict[str, Any], tier: SubscriptionTier) -> str:
         """Format subscription information into a user-friendly response"""

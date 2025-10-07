@@ -10,6 +10,12 @@ on:
 env:
   AWS_REGION: us-east-1
   PYTHON_VERSION: '3.11'
+  COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+  COGNITO_CLIENT_ID: ${{ secrets.COGNITO_CLIENT_ID }}
+  BEDROCK_AGENT_ID: ${{ secrets.BEDROCK_AGENT_ID }}
+  OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+  SESSIONS_TABLE: ${{ secrets.SESSIONS_TABLE }}
+  USAGE_TABLE: ${{ secrets.USAGE_TABLE }}
 
 jobs:
   deploy-infrastructure:
@@ -94,6 +100,13 @@ jobs:
     needs: deploy-infrastructure
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    env:
+      COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+      COGNITO_CLIENT_ID: ${{ secrets.COGNITO_CLIENT_ID }}
+      BEDROCK_AGENT_ID: ${{ secrets.BEDROCK_AGENT_ID }}
+      OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+      SESSIONS_TABLE: ${{ secrets.SESSIONS_TABLE }}
+      USAGE_TABLE: ${{ secrets.USAGE_TABLE }}
     
     steps:
     - name: Checkout code
@@ -113,4 +126,19 @@ jobs:
         echo "   Client ID: $CLIENT_ID"
         echo "🌐 Frontend ready at: http://localhost:8000"
         echo "📝 Manual user registration available with subscription tier selection"
+        
+    - name: Create Environment File
+      run: |
+        cat > .env << EOF
+        COGNITO_USER_POOL_ID=${{ env.COGNITO_USER_POOL_ID }}
+        COGNITO_CLIENT_ID=${{ env.COGNITO_CLIENT_ID }}
+        BEDROCK_AGENT_ID=${{ env.BEDROCK_AGENT_ID }}
+        OPENWEATHER_API_KEY=${{ env.OPENWEATHER_API_KEY }}
+        SESSIONS_TABLE=${{ env.SESSIONS_TABLE }}
+        USAGE_TABLE=${{ env.USAGE_TABLE }}
+        AWS_REGION=us-east-1
+        DEBUG=false
+        PORT=8000
+        EOF
+        echo "✅ Environment file created for deployment"
 

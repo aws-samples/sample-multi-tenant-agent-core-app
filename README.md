@@ -125,22 +125,53 @@ Authorization: Bearer <jwt-token>
 }
 ```
 
-## 🤖 Claude 3.5 Sonnet Integration
+## 🤖 Claude 3 Haiku Integration
 
 ### Model Configuration
-- **Model ID**: `anthropic.claude-3-5-sonnet-20241022-v2:0`
-- **Fallback**: Direct model invocation if no Bedrock Agent configured
-- **Tenant Context**: Injected into prompts for tenant-aware responses
+- **Model ID**: `anthropic.claude-3-haiku-20240307-v1:0`
+- **Agent Core Runtime**: AWS Bedrock Agent Core API integration
+- **Tenant Context**: Injected into session attributes for tenant-aware responses
 
 ### Usage Tracking
 ```json
 {
-  "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "model_id": "anthropic.claude-3-haiku-20240307-v1:0",
   "input_tokens": 150,
   "output_tokens": 300,
   "invocation_time": "2024-01-01T00:00:00Z"
 }
 ```
+
+## 🌤️ Real-Time Weather MCP Integration
+
+### OpenWeatherMap API Integration
+- **Real-time Data**: Live weather data from OpenWeatherMap API
+- **MCP Architecture**: Weather tools integrated as Model Context Protocol servers
+- **Agent Core Integration**: Weather data passed to Agent Core runtime for natural responses
+
+### Weather Tools Available
+```json
+{
+  "basic_tier": [],
+  "advanced_tier": ["get_current_weather", "get_weather_forecast"],
+  "premium_tier": ["get_current_weather", "get_weather_forecast", "get_weather_alerts"]
+}
+```
+
+### Setup Weather API
+```bash
+# Get free API key from https://openweathermap.org/api
+python scripts/setup_weather_api.py
+
+# Or manually set in .env
+OPENWEATHER_API_KEY=your-api-key
+```
+
+### Weather Query Examples
+- "What's the weather in London?"
+- "Show me the 5-day forecast for Tokyo"
+- "Any weather alerts for New York?"
+- "How's the weather in Paris tomorrow?"
 
 ## 🏢 Multi-Tenant Features
 
@@ -202,12 +233,15 @@ COGNITO_CLIENT_ID=your-client-id
 SESSIONS_TABLE=tenant-sessions
 USAGE_TABLE=tenant-usage
 
-# Bedrock (Optional - uses Claude 3.5 Sonnet directly)
+# Bedrock (Optional - uses Claude 3 Haiku directly)
 BEDROCK_AGENT_ID=your-agent-id
 AWS_REGION=us-east-1
 
 # Security
 JWT_SECRET=your-secret-key
+
+# Real-time Weather API (Required for MCP Weather Tools)
+OPENWEATHER_API_KEY=your-openweathermap-api-key
 ```
 
 ## 📈 Production Considerations
