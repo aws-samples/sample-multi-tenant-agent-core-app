@@ -26,7 +26,11 @@ class MCPServer:
 
     async def _get_tier_info(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Get subscription tier information"""
-        tier = SubscriptionTier(args.get("tier", "basic"))
+        tier_str = args.get("tier", "basic")
+        if isinstance(tier_str, str):
+            tier = SubscriptionTier(tier_str)
+        else:
+            tier = tier_str
         
         tier_info = {
             SubscriptionTier.BASIC: {
@@ -52,7 +56,7 @@ class MCPServer:
             }
         }
         
-        return {"tier_info": tier_info[tier]}
+        return {"result": {"tier_info": tier_info[tier]}}
 
     async def _upgrade_tier(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Simulate tier upgrade process"""

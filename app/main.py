@@ -21,7 +21,7 @@ subscription_service = SubscriptionService(store)
 mcp_client = MCPClient()
 
 # Bedrock Agent configuration
-AGENT_ID = os.getenv("BEDROCK_AGENT_ID", "your-agent-id")
+AGENT_ID = os.getenv("BEDROCK_AGENT_ID", "BAUOKJ4UDH")
 AGENT_ALIAS_ID = os.getenv("BEDROCK_AGENT_ALIAS_ID", "TSTALIASID")
 
 # Initialize both basic and agentic services
@@ -63,13 +63,10 @@ async def chat(message: ChatMessage, current_user: dict = Depends(get_current_us
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Use integrated MCP-Agent Core service if agent is configured
-    if AGENT_ID and AGENT_ID != "your-agent-id":
-        result = await mcp_agent_integration.invoke_agent_with_mcp_tools(
-            message.message, message.tenant_context, tier
-        )
-    else:
-        result = bedrock_service.invoke_agent(message.message, message.tenant_context)
+    # Always use MCP-Agent Core integration for proper tool handling
+    result = await mcp_agent_integration.invoke_agent_with_mcp_tools(
+        message.message, message.tenant_context, tier
+    )
     
     # Update tier-based session activity and increment usage
     store.update_session_activity(

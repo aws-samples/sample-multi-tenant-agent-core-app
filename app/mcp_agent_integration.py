@@ -29,9 +29,10 @@ class MCPAgentCoreIntegration:
             tenant_context.user_id,
             tenant_context.session_id,
             additional_context={
-                "mcp_tools_enabled": len(available_tools) > 0,
+                "mcp_tools_enabled": "true" if available_tools else "false",
                 "available_mcp_tools": ",".join(available_tools),
-                "subscription_tier": subscription_tier.value
+                "subscription_tier": subscription_tier.value,
+                "tier_capabilities": self._get_tier_capabilities(subscription_tier)
             }
         )
         
@@ -40,9 +41,9 @@ class MCPAgentCoreIntegration:
             tenant_context.tenant_id,
             tenant_context.user_id,
             message_context={
-                "mcp_context": f"Available MCP tools: {', '.join(available_tools)}",
-                "tier_capabilities": self._get_tier_capabilities(subscription_tier),
-                "enable_mcp_routing": "true" if available_tools else "false"
+                "user_subscription_tier": subscription_tier.value,
+                "available_tools": ", ".join(available_tools) if available_tools else "none",
+                "instruction": f"You have access to these tools: {', '.join(available_tools)}. Use get_tier_info when users ask about subscription details."
             }
         )
         
