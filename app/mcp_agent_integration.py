@@ -69,16 +69,42 @@ class MCPAgentCoreIntegration:
             return self._merge_mcp_agent_results(agent_result, mcp_result, mcp_tool_request)
         
         else:
-            # Standard Agent Core invocation with MCP context available
-            return self.agentic_service.invoke_agent_with_planning(message, tenant_context)
+            # Check if this is a subscription-related query that should use MCP
+            if self._is_subscription_query(message) and available_tools:
+                # Force MCP tool execution for subscription queries
+                mcp_result = await self.mcp_client.execute_mcp_tool(
+                    "get_tier_info",
+                    {"tier": subscription_tier.value},
+                    subscription_tier
+                )
+                
+                # Create a direct response with subscription info
+                return {
+                    "response": self._format_subscription_response(mcp_result, subscription_tier),
+                    "session_id": tenant_context.session_id,
+                    "tenant_id": tenant_context.tenant_id,
+                    "mcp_integration": {
+                        "tool_used": "get_tier_info",
+                        "tool_result": mcp_result,
+                        "integration_success": True
+                    },
+                    "usage_metrics": {"mcp_subscription_query": True}
+                }
+            else:
+                # Standard Agent Core invocation with MCP context available
+                return self.agentic_service.invoke_agent_with_planning(message, tenant_context)
     
     def _parse_mcp_tool_request(self, message: str, available_tools: List[str]) -> Optional[Dict[str, Any]]:
         """Parse message to detect MCP tool requests"""
         message_lower = message.lower()
         
-        # Simple pattern matching for MCP tool requests
+        # Enhanced pattern matching for MCP tool requests
         tool_patterns = {
-            "get_tier_info": ["tier info", "subscription info", "my plan", "plan details"],
+            "get_tier_info": [
+                "subscription details", "subscription info", "tier info", "my plan", 
+                "plan details", "what is my subscription", "my subscription", 
+                "subscription tier", "current plan", "account details"
+            ],
             "upgrade_tier": ["upgrade", "change plan", "upgrade tier", "premium"],
             "get_usage_analytics": ["usage", "analytics", "statistics", "metrics"],
             "manage_limits": ["increase limit", "manage limit", "change limit"]
@@ -98,7 +124,6 @@ class MCPAgentCoreIntegration:
     
     def _extract_tool_arguments(self, message: str, tool_name: str) -> Dict[str, Any]:
         """Extract arguments for MCP tool from message"""
-        # Simple argument extraction - in production, use NLP
         args = {}
         
         if tool_name == "get_tier_info":
@@ -108,11 +133,15 @@ class MCPAgentCoreIntegration:
                 args = {"new_tier": "premium"}
             elif "advanced" in message.lower():
                 args = {"new_tier": "advanced"}
+            else:
+                args = {"new_tier": "premium"}  # Default upgrade target
         elif tool_name == "get_usage_analytics":
-            args = {"period": "current_month"}
+            args = {"tenant_id": "current", "period": "current_month"}
         elif tool_name == "manage_limits":
             if "increase" in message.lower():
                 args = {"action": "increase", "limit_type": "daily"}
+            else:
+                args = {"action": "view", "limit_type": "all"}
         
         return args
     
@@ -165,6 +194,30 @@ class MCPAgentCoreIntegration:
             SubscriptionTier.PREMIUM: "Full premium features with unlimited access to all MCP tools and advanced analytics"
         }
         return capabilities.get(tier, "Unknown tier")
+    
+    def _is_subscription_query(self, message: str) -> bool:
+        """Check if message is asking about subscription details"""
+        subscription_keywords = [
+            "subscription", "plan", "tier", "billing", "account", 
+            "limits", "usage", "features", "pricing"
+        ]
+        message_lower = message.lower()
+        return any(keyword in message_lower for keyword in subscription_keywords)
+    
+    def _format_subscription_response(self, mcp_result: Dict[str, Any], tier: SubscriptionTier) -> str:
+        """Format subscription information into a user-friendly response"""
+        if "result" in mcp_result and "tier_info" in mcp_result["result"]:
+            tier_info = mcp_result["result"]["tier_info"]
+            return f"""Your subscription details:
+            
+🏷️ **{tier_info['name']} Plan** ({tier_info['price']})
+📊 **Daily Messages**: {tier_info['daily_messages']}
+📈 **Monthly Messages**: {tier_info['monthly_messages']}
+✨ **Features**: {', '.join(tier_info['features'])}
+
+Your current tier is {tier.value.upper()} with access to all listed features."""
+        else:
+            return f"You are currently on the {tier.value.upper()} subscription tier."
 
 class MCPActionGroupSimulator:
     """Simulates MCP tools as Bedrock Agent Action Groups"""
