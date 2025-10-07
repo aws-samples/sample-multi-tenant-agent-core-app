@@ -53,11 +53,6 @@ class MCPAgentCoreIntegration:
             # Standard Agent Core invocation
             return self.agentic_service.invoke_agent_with_planning(message, tenant_context)
     
-se based on the MCP tool result and the user's request.
-        """
-        
-        return mcp_context
-    
     def _merge_mcp_agent_results(self, agent_result: Dict[str, Any], mcp_result: Dict[str, Any], 
                                mcp_request: Dict[str, Any]) -> Dict[str, Any]:
         """Merge MCP tool results with Agent Core results"""
@@ -207,8 +202,8 @@ Your current tier is {tier.value.upper()} with access to all listed features."""
 class MCPActionGroupSimulator:
     """Simulates MCP tools as Bedrock Agent Action Groups"""
     
-    def __init__(self, mcp_client: MCPClient):
-        self.mcp_client = mcp_client
+    def __init__(self, weather_client: WeatherMCPClient):
+        self.weather_client = weather_client
     
     def generate_action_group_schema(self, subscription_tier: SubscriptionTier) -> Dict[str, Any]:
         """Generate OpenAPI schema for MCP tools as action groups"""

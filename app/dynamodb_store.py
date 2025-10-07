@@ -113,3 +113,60 @@ class DynamoDBStore:
             
         except Exception:
             return []
+    
+    async def get_tenant_usage_metrics(self, tenant_id: str, start_date: datetime, end_date: datetime) -> List[Dict]:
+        """Get detailed usage metrics for cost attribution"""
+        try:
+            response = self.usage_table.query(
+                KeyConditionExpression='tenant_id = :tenant_id AND #ts BETWEEN :start_time AND :end_time',
+                ExpressionAttributeNames={'#ts': 'timestamp'},
+                ExpressionAttributeValues={
+                    ':tenant_id': tenant_id,
+                    ':start_time': start_date.isoformat(),
+                    ':end_time': end_date.isoformat()
+                }
+            )
+            return response.get('Items', [])
+        except Exception:
+            return []
+    
+    async def get_all_tenants(self) -> List[Dict[str, str]]:
+        """Get list of all tenants"""
+        try:
+            response = self.sessions_table.scan(
+                ProjectionExpression='tenant_id'
+            )
+            tenant_ids = set(item['tenant_id'] for item in response.get('Items', []))
+            return [{'tenant_id': tid} for tid in tenant_ids]
+        except Exception:
+            return []
+    
+    async def get_tenants_by_tier(self, tier: SubscriptionTier) -> List[Dict[str, str]]:
+        """Get tenants by subscription tier"""
+        try:
+            response = self.sessions_table.scan(
+                FilterExpression='subscription_tier = :tier',
+                ProjectionExpression='tenant_id',
+                ExpressionAttributeValues={':tier': tier.value}
+            )
+            tenant_ids = set(item['tenant_id'] for item in response.get('Items', []))
+            return [{'tenant_id': tid} for tid in tenant_ids]
+        except Exception:
+            return []
+    
+    async def store_usage_metric(self, tenant_id: str, user_id: str, session_id: str, 
+                               metric_type: str, value: float, **metadata) -> None:
+        """Store usage metric with metadata"""
+        try:
+            usage_item = {
+                "tenant_id": tenant_id,
+                "timestamp": datetime.utcnow().isoformat(),
+                "user_id": user_id,
+                "session_id": session_id,
+                "metric_type": metric_type,
+                "value": value,
+                **metadata
+            }
+            self.usage_table.put_item(Item=usage_item)
+        except Exception as e:
+            print(f"Error storing usage metric: {e}")

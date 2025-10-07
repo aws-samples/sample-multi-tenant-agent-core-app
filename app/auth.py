@@ -32,9 +32,16 @@ class CognitoAuth:
             payload_bytes = base64.urlsafe_b64decode(payload_encoded)
             payload = json.loads(payload_bytes)
             
+            # Debug: Print actual JWT payload
+            print(f"🔍 Actual JWT Payload: {json.dumps(payload, indent=2)}")
+            
             # Extract tenant_id and subscription_tier from custom attributes
             tenant_id = payload.get("custom:tenant_id")
             subscription_tier = payload.get("custom:subscription_tier", "basic")
+            
+            # Determine role from Cognito Groups
+            user_groups = payload.get("cognito:groups", [])
+            role = "admin" if any(group.endswith("-admins") for group in user_groups) else "user"
             
             if not tenant_id:
                 raise HTTPException(status_code=403, detail="No tenant ID found in token")
@@ -44,7 +51,9 @@ class CognitoAuth:
                 "tenant_id": tenant_id,
                 "subscription_tier": SubscriptionTier(subscription_tier),
                 "email": payload.get("email"),
-                "username": payload.get("cognito:username", payload.get("email"))
+                "username": payload.get("cognito:username", payload.get("email")),
+                "role": role,
+                "cognito:groups": user_groups
             }
             
         except json.JSONDecodeError:

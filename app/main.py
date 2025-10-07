@@ -12,6 +12,9 @@ from .runtime_context import RuntimeContextManager
 from .subscription_service import SubscriptionService
 from .weather_mcp_service import WeatherMCPClient
 from .mcp_agent_integration import MCPAgentCoreIntegration
+from .cost_attribution import CostAttributionService
+from .admin_cost_service import AdminCostService
+from .admin_auth import get_admin_user, verify_tenant_admin, AdminAuthService
 
 app = FastAPI(title="Multi-Tenant Bedrock Chat", version="1.0.0")
 
@@ -30,6 +33,10 @@ agentic_service = AgenticService(AGENT_ID, AGENT_ALIAS_ID)
 
 # Initialize MCP-Agent Core integration
 mcp_agent_integration = MCPAgentCoreIntegration(agentic_service)
+
+# Initialize cost attribution service
+cost_service = CostAttributionService()
+admin_cost_service = AdminCostService()
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(message: ChatMessage, current_user: dict = Depends(get_current_user)):
@@ -138,6 +145,32 @@ async def get_tenant_usage(tenant_id: str, current_user: dict = Depends(get_curr
     
     return store.get_tenant_usage(tenant_id)
 
+@app.get("/api/tenants/{tenant_id}/costs")
+async def get_tenant_costs(tenant_id: str, days: int = 30, current_user: dict = Depends(get_current_user)):
+    """Get cost attribution for tenant"""
+    if tenant_id != current_user["tenant_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    from datetime import datetime, timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    costs = await cost_service.calculate_tenant_costs(tenant_id, start_date, end_date)
+    return costs
+
+@app.get("/api/tenants/{tenant_id}/users/{user_id}/costs")
+async def get_user_costs(tenant_id: str, user_id: str, days: int = 30, current_user: dict = Depends(get_current_user)):
+    """Get cost attribution for specific user"""
+    if tenant_id != current_user["tenant_id"] or user_id != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    from datetime import datetime, timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    costs = await cost_service.calculate_user_costs(tenant_id, user_id, start_date, end_date)
+    return costs
+
 @app.get("/api/tenants/{tenant_id}/subscription")
 async def get_subscription_info(tenant_id: str, current_user: dict = Depends(get_current_user)):
     """Get subscription tier information and usage limits"""
@@ -231,6 +264,111 @@ async def get_tenant_analytics(tenant_id: str, current_user: dict = Depends(get_
     }
     
     return analytics
+
+@app.get("/api/admin/cost-report")
+async def get_cost_report(tenant_id: str = None, days: int = 30):
+    """Generate comprehensive cost report (admin only)"""
+    # In production, add admin authentication here
+    report = await cost_service.generate_cost_report(tenant_id, days)
+    return report
+
+@app.get("/api/admin/tier-costs/{tier}")
+async def get_tier_costs(tier: str, days: int = 30):
+    """Get cost breakdown by subscription tier (admin only)"""
+    # In production, add admin authentication here
+    subscription_tier = SubscriptionTier(tier)
+    costs = await cost_service.get_subscription_tier_costs(subscription_tier, days)
+    return costs
+
+# Admin-Only Granular Cost Endpoints
+@app.get("/api/admin/tenants/{tenant_id}/overall-cost")
+async def get_admin_tenant_overall_cost(tenant_id: str, days: int = 30, admin_user: dict = Depends(verify_tenant_admin)):
+    """1. Overall Tenant Cost - Admin Only"""
+    from datetime import datetime, timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    costs = await admin_cost_service.get_tenant_overall_cost(tenant_id, start_date, end_date)
+    return costs
+
+@app.get("/api/admin/tenants/{tenant_id}/per-user-cost")
+async def get_admin_per_user_cost(tenant_id: str, days: int = 30, admin_user: dict = Depends(verify_tenant_admin)):
+    """2. Per User Cost - Admin Only"""
+    from datetime import datetime, timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    costs = await admin_cost_service.get_tenant_per_user_cost(tenant_id, start_date, end_date)
+    return costs
+
+@app.get("/api/admin/tenants/{tenant_id}/service-wise-cost")
+async def get_admin_service_wise_cost(tenant_id: str, days: int = 30, admin_user: dict = Depends(verify_tenant_admin)):
+    """3. Overall Tenant Service-wise Consumption Cost - Admin Only"""
+    from datetime import datetime, timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    costs = await admin_cost_service.get_tenant_service_wise_cost(tenant_id, start_date, end_date)
+    return costs
+
+@app.get("/api/admin/tenants/{tenant_id}/users/{user_id}/service-cost")
+async def get_admin_user_service_cost(tenant_id: str, user_id: str, days: int = 30, admin_user: dict = Depends(verify_tenant_admin)):
+    """4. User Service-wise Consumption Cost - Admin Only"""
+    from datetime import datetime, timedelta
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    
+    costs = await admin_cost_service.get_user_service_wise_cost(tenant_id, user_id, start_date, end_date)
+    return costs
+
+@app.get("/api/admin/tenants/{tenant_id}/comprehensive-report")
+async def get_comprehensive_admin_report(tenant_id: str, days: int = 30, admin_user: dict = Depends(verify_tenant_admin)):
+    """Comprehensive Admin Cost Report - All 4 breakdowns"""
+    report = await admin_cost_service.generate_comprehensive_admin_report(tenant_id, days)
+    return report
+
+@app.get("/api/admin/my-tenants")
+async def get_admin_tenants(admin_user: dict = Depends(get_admin_user)):
+    """Get tenants where current user has admin access"""
+    return {
+        "admin_email": admin_user["email"],
+        "admin_tenants": admin_user["admin_tenants"]
+    }
+
+@app.post("/api/admin/add-to-group")
+async def add_user_to_admin_group(request: dict):
+    """Add user to admin group during registration"""
+    from app.admin_auth import AdminAuthService
+    
+    email = request.get("email")
+    tenant_id = request.get("tenant_id")
+    
+    if not email or not tenant_id:
+        raise HTTPException(status_code=400, detail="Email and tenant_id required")
+    
+    admin_service = AdminAuthService()
+    
+    # Create admin groups if they don't exist
+    try:
+        group_name = f"{tenant_id}-admins"
+        admin_service.cognito_client.create_group(
+            GroupName=group_name,
+            UserPoolId=admin_service.user_pool_id,
+            Description=f"{tenant_id.title()} Administrators"
+        )
+    except Exception:
+        pass  # Group may already exist
+    
+    # Add user to admin group
+    try:
+        admin_service.cognito_client.admin_add_user_to_group(
+            UserPoolId=admin_service.user_pool_id,
+            Username=email,
+            GroupName=f"{tenant_id}-admins"
+        )
+        return {"success": True, "message": f"Added {email} to {tenant_id}-admins group"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add user to admin group: {str(e)}")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="frontend"), name="static")

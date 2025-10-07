@@ -93,6 +93,13 @@
                     <option value="premium">Premium ($99/month) - 1000 daily messages + Full MCP access</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label for="regRole">User Role:</label>
+                <select id="regRole">
+                    <option value="user">Regular User</option>
+                    <option value="admin">Admin (Cost Reports Access)</option>
+                </select>
+            </div>
             <button onclick="register()">Register</button>
             <div id="registerError" class="error"></div>
             <div id="registerSuccess" class="success"></div>
@@ -118,6 +125,18 @@
                 <button onclick="getSessions()">View Sessions</button>
                 <button onclick="getSubscriptionInfo()">Subscription Info</button>
                 <button onclick="getMCPTools()">MCP Tools</button>
+            </div>
+            
+            <div class="input-group">
+                <button onclick="getCostReport()" style="background-color: #28a745;">💰 Cost Report</button>
+                <button onclick="getUserCosts()" style="background-color: #17a2b8;">👤 My Costs</button>
+            </div>
+            
+            <div class="input-group" id="adminControls" style="display: none;">
+                <button onclick="getAdminOverallCost()" style="background-color: #dc3545;">🔒 Admin: Overall Cost</button>
+                <button onclick="getAdminPerUserCost()" style="background-color: #fd7e14;">🔒 Admin: Per User</button>
+                <button onclick="getAdminServiceCost()" style="background-color: #6610f2;">🔒 Admin: Service-wise</button>
+                <button onclick="getComprehensiveReport()" style="background-color: #e83e8c;">🔒 Admin: Full Report</button>
             </div>
             
             <div id="usageInfo"></div>
@@ -150,6 +169,7 @@
             const email = document.getElementById('regEmail').value;
             const password = document.getElementById('regPassword').value;
             const tenantId = document.getElementById('regTenant').value;
+            const role = document.getElementById('regRole').value;
             
             const attributeList = [
                 new AmazonCognitoIdentity.CognitoUserAttribute({
@@ -174,17 +194,21 @@
                 })
             ];
 
-            userPool.signUp(email, password, attributeList, null, (err, result) => {
+            userPool.signUp(email, password, attributeList, null, async (err, result) => {
                 if (err) {
                     document.getElementById('registerError').textContent = err.message;
                     return;
                 }
                 
+                // If admin role selected, add to admin group after verification
+                const isAdmin = role === 'admin';
+                
                 // Show verification code input
                 document.getElementById('registerSuccess').innerHTML = 
                     `Registration successful! Please check your email for verification code.<br>
+                     ${isAdmin ? '<strong style="color: #dc3545;">🔒 Admin access will be granted after verification</strong><br>' : ''}
                      <input type="text" id="verificationCode" placeholder="Enter verification code" style="margin: 10px 0; padding: 8px;">
-                     <button onclick="confirmSignUp('${email}')">Verify</button>`;
+                     <button onclick="confirmSignUp('${email}', '${tenantId}', ${isAdmin})">Verify</button>`;
                 document.getElementById('registerError').textContent = '';
             });
         }
@@ -238,7 +262,27 @@
                  <strong>Subscription:</strong> ${currentUser.subscription_tier.toUpperCase()}<br>
                  <strong>User ID:</strong> ${currentUser.user_id}`;
             
+            // Check if user is admin and show admin controls
+            checkAdminAccess();
+            
             createSession();
+        }
+        
+        async function checkAdminAccess() {
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/admin/my-tenants`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const adminData = await response.json();
+                    document.getElementById('adminControls').style.display = 'block';
+                    document.getElementById('userInfo').innerHTML += 
+                        `<br><strong style="color: #dc3545;">🔒 ADMIN ACCESS</strong> for: ${adminData.admin_tenants.join(', ')}`;
+                }
+            } catch (error) {
+                // User is not admin, keep admin controls hidden
+            }
         }
 
         async function createSession() {
@@ -439,7 +483,7 @@
             }
         }
 
-        function confirmSignUp(email) {
+        function confirmSignUp(email, tenantId, isAdmin) {
             const verificationCode = document.getElementById('verificationCode').value;
             
             const userData = {
@@ -449,15 +493,242 @@
             
             const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
             
-            cognitoUser.confirmRegistration(verificationCode, true, (err, result) => {
+            cognitoUser.confirmRegistration(verificationCode, true, async (err, result) => {
                 if (err) {
                     document.getElementById('registerError').textContent = err.message;
                     return;
                 }
-                document.getElementById('registerSuccess').textContent = 
-                    'Email verified successfully! You can now login.';
+                
+                // If admin role, add to admin group
+                if (isAdmin) {
+                    try {
+                        const response = await fetch(`${CONFIG.apiUrl}/api/admin/add-to-group`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                email: email,
+                                tenant_id: tenantId
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            document.getElementById('registerSuccess').textContent = 
+                                '✅ Email verified and admin access granted! You can now login with admin privileges.';
+                        } else {
+                            document.getElementById('registerSuccess').textContent = 
+                                '✅ Email verified! Admin access pending - contact support.';
+                        }
+                    } catch (error) {
+                        document.getElementById('registerSuccess').textContent = 
+                            '✅ Email verified! Admin access pending - contact support.';
+                    }
+                } else {
+                    document.getElementById('registerSuccess').textContent = 
+                        '✅ Email verified successfully! You can now login.';
+                }
+                
                 document.getElementById('registerError').textContent = '';
             });
+        }
+
+        async function getCostReport() {
+            if (!currentUser) return;
+            
+            const days = prompt('Enter number of days for cost report (default: 30):', '30');
+            const daysParam = days ? parseInt(days) : 30;
+            
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/tenants/${currentUser.tenant_id}/costs?days=${daysParam}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const costHtml = `
+                        <h3>💰 Cost Report (${daysParam} days)</h3>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                            <h4>Total Cost: $${data.total_cost.toFixed(4)}</h4>
+                            <p><strong>Bedrock:</strong> $${data.cost_breakdown.bedrock_costs.toFixed(4)}</p>
+                            <p><strong>Weather API:</strong> $${data.cost_breakdown.weather_api_costs.toFixed(4)}</p>
+                            <p><strong>Agent Runtime:</strong> $${data.cost_breakdown.agent_runtime_costs.toFixed(4)}</p>
+                            <p><strong>Total Invocations:</strong> ${data.cost_breakdown.total_invocations}</p>
+                            <p><strong>Total Tokens:</strong> ${data.cost_breakdown.total_tokens.input + data.cost_breakdown.total_tokens.output}</p>
+                        </div>
+                        <h4>User Breakdown:</h4>
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            ${Object.entries(data.users).map(([userId, userCost]) => 
+                                `<p><strong>${userId}:</strong> $${userCost.total_cost.toFixed(4)} (${userCost.invocations} invocations)</p>`
+                            ).join('')}
+                        </div>
+                    `;
+                    document.getElementById('usageInfo').innerHTML = costHtml;
+                } else {
+                    document.getElementById('usageInfo').innerHTML = '<p>Error loading cost report</p>';
+                }
+            } catch (error) {
+                console.error('Error getting cost report:', error);
+            }
+        }
+        
+        async function getUserCosts() {
+            if (!currentUser) return;
+            
+            const days = prompt('Enter number of days for your cost report (default: 30):', '30');
+            const daysParam = days ? parseInt(days) : 30;
+            
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/tenants/${currentUser.tenant_id}/users/${currentUser.user_id}/costs?days=${daysParam}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const userCostHtml = `
+                        <h3>👤 My Costs (${daysParam} days)</h3>
+                        <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                            <h4>My Total Cost: $${data.total_cost.toFixed(4)}</h4>
+                            <p><strong>Bedrock:</strong> $${data.bedrock_cost.toFixed(4)}</p>
+                            <p><strong>Weather API:</strong> $${data.weather_api_cost.toFixed(4)}</p>
+                            <p><strong>Agent Runtime:</strong> $${data.agent_runtime_cost.toFixed(4)}</p>
+                            <p><strong>My Invocations:</strong> ${data.invocations}</p>
+                            <p><strong>My Tokens:</strong> ${data.tokens.input + data.tokens.output} (${data.tokens.input} input, ${data.tokens.output} output)</p>
+                        </div>
+                    `;
+                    document.getElementById('usageInfo').innerHTML = userCostHtml;
+                } else {
+                    document.getElementById('usageInfo').innerHTML = '<p>Error loading your cost report</p>';
+                }
+            } catch (error) {
+                console.error('Error getting user costs:', error);
+            }
+        }
+
+        async function getAdminOverallCost() {
+            if (!currentUser) return;
+            
+            const days = prompt('Enter days for admin overall cost report (default: 30):', '30');
+            const daysParam = days ? parseInt(days) : 30;
+            
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/admin/tenants/${currentUser.tenant_id}/overall-cost?days=${daysParam}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const adminHtml = `
+                        <h3>🔒 ADMIN: Overall Tenant Cost (${daysParam} days)</h3>
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 5px; border: 1px solid #ffeaa7;">
+                            <h4>Total: $${data.total_cost.toFixed(4)}</h4>
+                            <h5>Service Breakdown:</h5>
+                            ${Object.entries(data.service_breakdown).map(([service, cost]) => 
+                                `<p><strong>${service}:</strong> $${cost.toFixed(4)} (${data.cost_per_service_percentage[service].toFixed(1)}%)</p>`
+                            ).join('')}
+                        </div>
+                    `;
+                    document.getElementById('usageInfo').innerHTML = adminHtml;
+                }
+            } catch (error) {
+                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+            }
+        }
+        
+        async function getAdminPerUserCost() {
+            if (!currentUser) return;
+            
+            const days = prompt('Enter days for per-user cost report (default: 30):', '30');
+            const daysParam = days ? parseInt(days) : 30;
+            
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/admin/tenants/${currentUser.tenant_id}/per-user-cost?days=${daysParam}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const userList = Object.entries(data.users).map(([userId, userData]) => 
+                        `<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px;">
+                            <strong>${userId}:</strong> $${userData.total_cost.toFixed(4)}<br>
+                            <small>Invocations: ${userData.usage_stats.invocations}, Tokens: ${userData.usage_stats.tokens.input + userData.usage_stats.tokens.output}</small>
+                        </div>`
+                    ).join('');
+                    
+                    document.getElementById('usageInfo').innerHTML = `
+                        <h3>🔒 ADMIN: Per User Costs (${daysParam} days)</h3>
+                        <div style="max-height: 300px; overflow-y: auto;">${userList}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+            }
+        }
+        
+        async function getAdminServiceCost() {
+            if (!currentUser) return;
+            
+            const days = prompt('Enter days for service-wise cost report (default: 30):', '30');
+            const daysParam = days ? parseInt(days) : 30;
+            
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/admin/tenants/${currentUser.tenant_id}/service-wise-cost?days=${daysParam}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const serviceList = Object.entries(data.service_breakdown).map(([service, serviceData]) => 
+                        `<div style="margin: 10px 0; padding: 10px; background: #e3f2fd; border-radius: 3px;">
+                            <strong>${service}:</strong> $${serviceData.total_cost.toFixed(4)}<br>
+                            <small>Usage: ${serviceData.usage_count}, Avg: $${serviceData.average_cost_per_use.toFixed(6)}</small><br>
+                            <small>Peak Day: ${serviceData.peak_usage_day.date} ($${serviceData.peak_usage_day.cost.toFixed(4)})</small>
+                        </div>`
+                    ).join('');
+                    
+                    document.getElementById('usageInfo').innerHTML = `
+                        <h3>🔒 ADMIN: Service-wise Costs (${daysParam} days)</h3>
+                        <div style="max-height: 300px; overflow-y: auto;">${serviceList}</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+            }
+        }
+        
+        async function getComprehensiveReport() {
+            if (!currentUser) return;
+            
+            const days = prompt('Enter days for comprehensive admin report (default: 30):', '30');
+            const daysParam = days ? parseInt(days) : 30;
+            
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/admin/tenants/${currentUser.tenant_id}/comprehensive-report?days=${daysParam}`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const reportHtml = `
+                        <h3>🔒 ADMIN: Comprehensive Cost Report (${daysParam} days)</h3>
+                        <div style="background: #f8d7da; padding: 15px; border-radius: 5px; border: 1px solid #f5c6cb;">
+                            <h4>Summary</h4>
+                            <p><strong>Total Cost:</strong> $${data.summary.total_tenant_cost.toFixed(4)}</p>
+                            <p><strong>Total Users:</strong> ${data.summary.total_users}</p>
+                            <p><strong>Highest Cost Service:</strong> ${data.summary.highest_cost_service}</p>
+                            <p><strong>Most Expensive User:</strong> ${data.summary.most_expensive_user}</p>
+                            
+                            <h5>Top Users by Cost:</h5>
+                            ${Object.entries(data['4_top_users_by_cost']).map(([userId, userData]) => 
+                                `<p>${userId}: $${userData.total_cost.toFixed(4)}</p>`
+                            ).join('')}
+                        </div>
+                    `;
+                    document.getElementById('usageInfo').innerHTML = reportHtml;
+                }
+            } catch (error) {
+                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+            }
         }
 
         function logout() {
@@ -472,6 +743,7 @@
             document.getElementById('loginForm').classList.add('active');
             document.getElementById('chatBox').innerHTML = '';
             document.getElementById('usageInfo').innerHTML = '';
+            document.getElementById('adminControls').style.display = 'none';
         }
 
         // Allow Enter key to send message

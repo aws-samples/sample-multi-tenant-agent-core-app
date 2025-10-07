@@ -1,28 +1,83 @@
-# Multi-Tenant Bedrock Chat Application
+# Multi-Tenant AWS Bedrock Agent Core Application
 
-A production-ready multi-tenant chat application using AWS Bedrock Agent Core services with **Claude 3.5 Sonnet**, **Cognito JWT authentication**, and **DynamoDB session storage**.
+A production-ready multi-tenant chat application using **AWS Bedrock Agent Core Runtime** with **Claude 3 Haiku**, **Cognito JWT authentication**, **DynamoDB session storage**, **real-time weather MCP integration**, and **granular cost attribution**.
 
-## 🏗️ Architecture
+## 🏗️ Architecture Overview
 
-- **Tenant Isolation**: JWT-based authentication with tenant context
-- **Bedrock Integration**: Claude 3.5 Sonnet with Agent Core Runtime API
-- **Session Storage**: DynamoDB for persistent session management
-- **Authentication**: Cognito User Pool with custom tenant attributes
-- **Usage Tracking**: Tenant-specific metrics in DynamoDB
+### Core Components
+- **AWS Bedrock Agent Core Runtime**: Advanced AI agent with planning, reasoning, and tool execution
+- **Multi-Tenant Authentication**: Cognito JWT with tenant isolation and admin role management
+- **Session Management**: DynamoDB-based persistent sessions with tenant-specific isolation
+- **MCP Integration**: Model Context Protocol for real-time weather data via OpenWeatherMap API
+- **Cost Attribution**: Granular cost tracking per tenant, user, and service with admin-only access
+- **Subscription Tiers**: Basic, Advanced, Premium with usage limits and feature access control
 
-## 🚀 Quick Deployment Steps
+### Agent Core Runtime Integration
+```
+JWT Token → Tenant Context → Session Attributes → Agent Core Runtime → Natural Response
+```
 
-### 1. Deploy Infrastructure
+**Session ID Format**: `{tenant_id}-{user_id}-{session_id}`
+**Session Attributes**: Tenant context, subscription tier, and user preferences passed to Agent Core
+**Trace Analysis**: Complete orchestration, planning, and reasoning trace capture
 
-**Option A: Using CDK**
+## 📋 Prerequisites
+
+### AWS Services Required
+- **AWS Bedrock**: Claude 3 Haiku model access
+- **Amazon Cognito**: User Pool with custom attributes
+- **Amazon DynamoDB**: Two tables for sessions and usage metrics
+- **AWS IAM**: Proper permissions for Bedrock, Cognito, and DynamoDB
+
+### External APIs
+- **OpenWeatherMap API**: Free tier account for real-time weather data
+  - Sign up: https://openweathermap.org/api
+  - Get API key from dashboard
+
+### Development Environment
+- **Python 3.11+**
+- **Node.js 18+** (for CDK deployment)
+- **AWS CLI** configured with appropriate permissions
+- **Git** for version control
+
+## 🚀 Quick Deployment
+
+### 1. Clone and Setup
+```bash
+git clone <repository-url>
+cd Agent-Core
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your values:
+COGNITO_USER_POOL_ID=your-cognito-user-pool-id
+COGNITO_CLIENT_ID=your-cognito-client-id
+BEDROCK_AGENT_ID=your-bedrock-agent-id
+OPENWEATHER_API_KEY=your-openweathermap-api-key
+SESSIONS_TABLE=tenant-sessions
+USAGE_TABLE=tenant-usage
+AWS_REGION=us-east-1
+```
+
+### 3. Deploy Infrastructure
+
+**Option A: CDK (Recommended)**
 ```bash
 cd infra/cdk
+npm install -g aws-cdk
 pip install -r requirements.txt
 cdk bootstrap
 cdk deploy
 ```
 
-**Option B: Using Terraform**
+**Option B: Terraform**
 ```bash
 cd infra/terraform
 terraform init
@@ -30,241 +85,327 @@ terraform plan
 terraform apply
 ```
 
-**Option C: Automated Script**
+### 4. Setup Weather API
 ```bash
-./scripts/deploy_infra.sh
+# Interactive setup for OpenWeatherMap API
+python scripts/setup_weather_api.py
 ```
 
-### 2. Create Test Users
+### 5. Run Application
 ```bash
-# Set environment variables from deployment outputs
-export COGNITO_USER_POOL_ID="your-pool-id"
-export COGNITO_CLIENT_ID="your-client-id"
-
-# Create test users with JWT tokens
-python scripts/create_test_user.py
-```
-
-### 3. Run Application
-```bash
-pip install -r requirements.txt
 python run.py
 ```
 
-Visit: http://localhost:8000
+Visit: **http://localhost:8000**
 
-## 🔐 Authentication Flow
+## 🔐 Authentication & Multi-Tenancy
 
 ### JWT Token Structure
 ```json
 {
-  "sub": "tenant1-user1",
-  "email": "tenant1-user1@example.com", 
-  "tenant_id": "tenant-001",
-  "exp": 1234567890
+  "sub": "user-uuid",
+  "email": "user@company.com",
+  "custom:tenant_id": "acme-corp",
+  "custom:subscription_tier": "premium",
+  "cognito:groups": ["acme-corp-admins"],
+  "exp": 1703123456
 }
 ```
 
-### API Authentication
-All endpoints require `Authorization: Bearer <jwt-token>` header.
+### Tenant Isolation
+- **Session IDs**: `{tenant_id}-{subscription_tier}-{user_id}-{session_id}`
+- **DynamoDB Partitioning**: All data partitioned by tenant_id
+- **Agent Core Context**: Tenant information passed in session attributes
+- **Admin Access**: Cognito Groups for tenant-specific admin privileges
 
-## 📋 API Endpoints
+### User Registration Flow
+1. **Self-Service Registration**: Users register with tenant and subscription tier selection
+2. **Admin Role Selection**: Optional admin role during registration
+3. **Email Verification**: Cognito email verification required
+4. **Automatic Group Assignment**: Admin users automatically added to `{tenant-id}-admins` group
+5. **JWT Generation**: Login generates JWT with tenant context and group membership
 
-### Create Session (Authenticated)
-```bash
-POST /api/sessions
-Authorization: Bearer <jwt-token>
+## 🤖 Agent Core Runtime Integration
+
+### Session State Management
+```python
+session_state = {
+    "sessionAttributes": {
+        "tenant_id": "acme-corp",
+        "user_id": "user-123",
+        "subscription_tier": "premium",
+        "organization_type": "enterprise"
+    },
+    "promptSessionAttributes": {
+        "request_type": "agentic_query",
+        "enable_planning": "true",
+        "tenant_context": "acme-corp enterprise user"
+    }
+}
 ```
 
-### Send Chat Message (Authenticated)
-```bash
-POST /api/chat
-Authorization: Bearer <jwt-token>
-Content-Type: application/json
+### Agent Invocation
+```python
+response = bedrock_agent_runtime.invoke_agent(
+    agentId=AGENT_ID,
+    agentAliasId=ALIAS_ID,
+    sessionId=f"{tenant_id}-{user_id}-{session_id}",
+    inputText=message,
+    sessionState=session_state,
+    enableTrace=True
+)
+```
 
+### Trace Analysis
+- **Planning Steps**: Agent reasoning and decision-making process
+- **Action Calls**: Tool and function executions
+- **Knowledge Queries**: Knowledge base retrievals
+- **Reasoning Chain**: Step-by-step thought process
+
+## 🌤️ Model Context Protocol (MCP) Integration
+
+### Real-Time Weather Data
+- **OpenWeatherMap Integration**: Live weather API calls
+- **MCP Server Architecture**: Weather tools as MCP servers
+- **Agent Core Processing**: Weather data passed to Agent Core for natural language responses
+
+### Weather Tools by Subscription Tier
+```json
 {
-  "message": "Hello, how can you help?",
-  "tenant_context": {
-    "tenant_id": "tenant-001",
-    "user_id": "user-001", 
-    "session_id": "session-uuid"
+  "basic": [],
+  "advanced": ["get_current_weather", "get_weather_forecast"],
+  "premium": ["get_current_weather", "get_weather_forecast", "get_weather_alerts"]
+}
+```
+
+### MCP-Agent Core Flow
+```
+User Query → MCP Detection → Weather API → Structured Data → Agent Core → Natural Response
+```
+
+**Example**:
+- User: "What's the weather in London?"
+- MCP: Calls OpenWeatherMap API for London weather
+- Agent Core: Processes real weather data and generates conversational response
+- Response: "The weather in London is currently 15°C with cloudy skies..."
+
+## 💰 Cost Attribution System
+
+### Granular Cost Tracking
+- **Per-Tenant Costs**: Complete cost breakdown by tenant
+- **Per-User Costs**: Individual user consumption within tenants
+- **Service-Wise Costs**: Breakdown by Bedrock, Weather API, MCP Runtime, etc.
+- **Admin-Only Access**: Cost reports restricted to tenant administrators
+
+### Cost Categories
+```json
+{
+  "bedrock_agent": {
+    "input_tokens": "$0.25 per 1K tokens",
+    "output_tokens": "$1.25 per 1K tokens",
+    "invocation": "$0.001 per call"
+  },
+  "weather_api": {
+    "api_call": "$0.0001 per call"
+  },
+  "mcp_runtime": {
+    "tool_execution": "$0.0005 per execution"
   }
 }
 ```
 
-### Get Tenant Usage (Authenticated)
+### Admin Cost Reports
+- **Overall Tenant Cost**: Total costs with service breakdown
+- **Per-User Analysis**: Individual user consumption patterns
+- **Service-Wise Trends**: Daily usage patterns and peak analysis
+- **Comprehensive Reports**: All cost dimensions in single view
+
+## 📊 Subscription Tiers & Usage Limits
+
+### Tier Comparison
+| Feature | Basic (Free) | Advanced ($29/mo) | Premium ($99/mo) |
+|---------|--------------|-------------------|------------------|
+| Daily Messages | 50 | 200 | 1,000 |
+| Monthly Messages | 1,000 | 5,000 | 25,000 |
+| Concurrent Sessions | 1 | 3 | 10 |
+| Weather Tools | ❌ | ✅ Basic | ✅ Full |
+| Cost Reports | ❌ | ❌ | ✅ Admin |
+| Session Duration | 30 min | 60 min | 240 min |
+
+### Usage Enforcement
+- **Real-time Limits**: API endpoints check usage before processing
+- **Tier-based Features**: MCP tools and admin access controlled by subscription
+- **Usage Tracking**: All consumption stored in DynamoDB for billing
+
+## 🔧 API Endpoints
+
+### Authentication Required Endpoints
 ```bash
-GET /api/tenants/{tenant_id}/usage
+# Chat with Agent Core
+POST /api/chat
 Authorization: Bearer <jwt-token>
+
+# Session Management
+POST /api/sessions
+GET /api/tenants/{tenant_id}/sessions
+
+# Usage & Analytics
+GET /api/tenants/{tenant_id}/usage
+GET /api/tenants/{tenant_id}/subscription
+
+# Cost Reports (User Level)
+GET /api/tenants/{tenant_id}/costs
+GET /api/tenants/{tenant_id}/users/{user_id}/costs
+
+# MCP Weather Tools
+GET /api/mcp/weather/tools
+POST /api/mcp/weather/{tool_name}
 ```
 
-## 🔍 Session Storage (DynamoDB)
+### Admin-Only Endpoints
+```bash
+# Granular Cost Attribution (Admin Only)
+GET /api/admin/tenants/{tenant_id}/overall-cost
+GET /api/admin/tenants/{tenant_id}/per-user-cost
+GET /api/admin/tenants/{tenant_id}/service-wise-cost
+GET /api/admin/tenants/{tenant_id}/users/{user_id}/service-cost
+GET /api/admin/tenants/{tenant_id}/comprehensive-report
 
-### Sessions Table Structure
+# Admin Management
+GET /api/admin/my-tenants
+POST /api/admin/add-to-group
+```
+
+## 🗄️ Data Storage
+
+### DynamoDB Tables
+
+**Sessions Table** (`tenant-sessions`)
 ```json
 {
-  "session_key": "tenant-001-user-001-uuid",
-  "tenant_id": "tenant-001",
-  "user_id": "user-001", 
-  "session_id": "uuid",
+  "session_key": "acme-corp-premium-user123-uuid",
+  "tenant_id": "acme-corp",
+  "user_id": "user123",
+  "subscription_tier": "premium",
   "created_at": "2024-01-01T00:00:00Z",
-  "last_activity": "2024-01-01T00:05:00Z",
-  "message_count": 5
+  "message_count": 15
 }
 ```
 
-### Usage Metrics Table Structure
+**Usage Metrics Table** (`tenant-usage`)
 ```json
 {
-  "tenant_id": "tenant-001",
+  "tenant_id": "acme-corp",
   "timestamp": "2024-01-01T00:00:00Z",
-  "metric_type": "agent_invocation",
-  "value": 1.0,
+  "user_id": "user123",
+  "metric_type": "bedrock_input_tokens",
+  "value": 150,
   "session_id": "uuid",
-  "agent_id": "agent-123"
+  "model_id": "anthropic.claude-3-haiku-20240307-v1:0"
 }
 ```
 
-## 🤖 Claude 3 Haiku Integration
+## 🌐 Frontend Features
 
-### Model Configuration
-- **Model ID**: `anthropic.claude-3-haiku-20240307-v1:0`
-- **Agent Core Runtime**: AWS Bedrock Agent Core API integration
-- **Tenant Context**: Injected into session attributes for tenant-aware responses
+### User Interface
+- **Cognito Registration**: Self-service user registration with tenant selection
+- **Admin Role Selection**: Optional admin privileges during signup
+- **Real-time Chat**: WebSocket-like chat interface with Agent Core
+- **Usage Dashboard**: Subscription limits and current usage display
+- **Cost Reports**: User-level cost visibility
+- **Weather Integration**: Natural language weather queries
+
+### Admin Interface
+- **Cost Analytics**: Granular cost reports and trends
+- **User Management**: View all tenant users and their consumption
+- **Service Analysis**: Breakdown by AWS service usage
+- **Comprehensive Reports**: Multi-dimensional cost analysis
+
+## 🔍 Monitoring & Analytics
 
 ### Usage Tracking
-```json
-{
-  "model_id": "anthropic.claude-3-haiku-20240307-v1:0",
-  "input_tokens": 150,
-  "output_tokens": 300,
-  "invocation_time": "2024-01-01T00:00:00Z"
-}
-```
+- **Real-time Metrics**: Every API call, token usage, and service consumption tracked
+- **Tenant Analytics**: Aggregated usage patterns per tenant
+- **Cost Attribution**: Automatic cost calculation and attribution
+- **Performance Monitoring**: Agent Core response times and success rates
 
-## 🌤️ Real-Time Weather MCP Integration
+### Trace Analysis
+- **Agent Core Traces**: Complete orchestration and reasoning traces
+- **MCP Integration Traces**: Weather API call success/failure tracking
+- **Session Analytics**: User engagement and session duration patterns
 
-### OpenWeatherMap API Integration
-- **Real-time Data**: Live weather data from OpenWeatherMap API
-- **MCP Architecture**: Weather tools integrated as Model Context Protocol servers
-- **Agent Core Integration**: Weather data passed to Agent Core runtime for natural responses
+## 🚀 Production Considerations
 
-### Weather Tools Available
-```json
-{
-  "basic_tier": [],
-  "advanced_tier": ["get_current_weather", "get_weather_forecast"],
-  "premium_tier": ["get_current_weather", "get_weather_forecast", "get_weather_alerts"]
-}
-```
+### Security
+- ✅ **JWT Authentication**: Cognito-managed tokens with tenant isolation
+- ✅ **Admin Access Control**: Cognito Groups for role-based access
+- ✅ **API Rate Limiting**: Subscription-based usage enforcement
+- ✅ **Cross-Tenant Prevention**: Complete data isolation
 
-### Setup Weather API
+### Scalability
+- ✅ **DynamoDB Auto-scaling**: Automatic capacity management
+- ✅ **Stateless Architecture**: Horizontal scaling capability
+- ✅ **Agent Core Runtime**: AWS-managed scaling and availability
+- ✅ **Multi-Region Support**: Deploy across AWS regions
+
+### Reliability
+- ✅ **Error Handling**: Graceful degradation and retry logic
+- ✅ **Session Persistence**: DynamoDB-backed session storage
+- ✅ **Trace Logging**: Complete audit trail for debugging
+- ✅ **Health Monitoring**: Application and service health checks
+
+## 📈 Advanced Features
+
+### Real-Time Weather Integration
+- **Live API Data**: OpenWeatherMap real-time weather information
+- **Natural Language Processing**: Agent Core converts weather data to conversational responses
+- **Subscription-Based Access**: Weather tools available based on subscription tier
+- **Error Handling**: Graceful fallbacks for API failures
+
+### Cost Optimization
+- **Usage-Based Billing**: Pay only for actual consumption
+- **Tier-Based Limits**: Prevent runaway costs with subscription limits
+- **Admin Visibility**: Complete cost transparency for tenant administrators
+- **Service Attribution**: Understand costs by AWS service usage
+
+### Multi-Tenant Architecture
+- **Complete Isolation**: No cross-tenant data access possible
+- **Scalable Design**: Add new tenants without infrastructure changes
+- **Admin Segregation**: Tenant-specific administrative access
+- **Usage Analytics**: Per-tenant usage patterns and optimization opportunities
+
+## 🛠️ Development & Deployment
+
+### Local Development
 ```bash
-# Get free API key from https://openweathermap.org/api
+# Start development server
+python run.py
+
+# Run with debug logging
+DEBUG=true python run.py
+
+# Test weather API integration
 python scripts/setup_weather_api.py
-
-# Or manually set in .env
-OPENWEATHER_API_KEY=your-api-key
 ```
 
-### Weather Query Examples
-- "What's the weather in London?"
-- "Show me the 5-day forecast for Tokyo"
-- "Any weather alerts for New York?"
-- "How's the weather in Paris tomorrow?"
-
-## 🏢 Multi-Tenant Features
-
-### Tenant Isolation
-- JWT-based authentication with tenant validation
-- DynamoDB partition keys include tenant ID
-- Session IDs: `{tenant_id}-{user_id}-{session_id}`
-
-### Cognito Integration
-- Custom attribute: `custom:tenant_id`
-- Email-based authentication
-- JWT token generation with tenant context
-
-### Security
-- All endpoints require valid JWT tokens
-- Tenant context validation on every request
-- Cross-tenant access prevention
-
-## 🧪 Testing Multi-Tenancy
-
-### 1. Get JWT Tokens
+### Production Deployment
 ```bash
-python scripts/create_test_user.py
-# Copy JWT tokens from output
+# Deploy infrastructure
+cd infra/cdk && cdk deploy
+
+# Configure environment variables in production
+# Deploy application code
+# Configure monitoring and alerting
 ```
 
-### 2. Test in Web Interface
-1. Visit http://localhost:8000
-2. Paste JWT token in "JWT Token" field
-3. Click "Set Auth" then "Create Session"
-4. Send messages and verify tenant isolation
-
-### 3. Test Different Tenants
-Use different JWT tokens to verify complete isolation between tenants.
-
-## 📊 Infrastructure Components
-
-### AWS Services Used
-- **Amazon Bedrock**: Claude 3.5 Sonnet model
-- **Amazon Cognito**: User authentication with custom attributes
-- **Amazon DynamoDB**: Session and usage metrics storage
-- **AWS IAM**: Role-based access control
-
-### CDK Stack Outputs
-- `UserPoolId`: Cognito User Pool ID
-- `UserPoolClientId`: Cognito Client ID  
-- `SessionsTableName`: DynamoDB sessions table
-- `UsageTableName`: DynamoDB usage metrics table
-
-## 🔧 Configuration
-
-### Environment Variables
+### Testing
 ```bash
-# Cognito (Required)
-COGNITO_USER_POOL_ID=your-pool-id
-COGNITO_CLIENT_ID=your-client-id
+# Create test users
+python scripts/create_test_users_with_tiers.py
 
-# DynamoDB (Required)
-SESSIONS_TABLE=tenant-sessions
-USAGE_TABLE=tenant-usage
-
-# Bedrock (Optional - uses Claude 3 Haiku directly)
-BEDROCK_AGENT_ID=your-agent-id
-AWS_REGION=us-east-1
-
-# Security
-JWT_SECRET=your-secret-key
-
-# Real-time Weather API (Required for MCP Weather Tools)
-OPENWEATHER_API_KEY=your-openweathermap-api-key
+# Test admin functionality
+# Register user with admin role
+# Verify cost reports access
 ```
 
-## 📈 Production Considerations
-
-### Security
-- ✅ JWT authentication with Cognito
-- ✅ Tenant context validation
-- ✅ IAM role-based permissions
-- ✅ Cross-tenant access prevention
-
-### Storage
-- ✅ DynamoDB for persistent sessions
-- ✅ Usage metrics with time-series data
-- ✅ Point-in-time recovery enabled
-
-### Monitoring
-- ✅ Bedrock usage metrics per tenant
-- ✅ Session activity tracking
-- ✅ Error handling and logging
-
-### Scaling
-- ✅ DynamoDB auto-scaling
-- ✅ Stateless application design
-- ✅ JWT-based authentication (no server sessions)
-
-This implementation provides a complete, production-ready multi-tenant chat application with proper authentication, persistent storage, and comprehensive usage tracking using AWS Bedrock Agent Core services.
+This application provides a complete, production-ready multi-tenant AI chat system with advanced cost attribution, real-time integrations, and enterprise-grade security using AWS Bedrock Agent Core Runtime.
