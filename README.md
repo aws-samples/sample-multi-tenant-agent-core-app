@@ -4,6 +4,8 @@ A production-ready multi-tenant chat application using **AWS Bedrock Agent Core 
 
 ## 🏗️ Architecture Overview
 
+![Architecture Diagram](architecture.png)
+
 ### Core Components
 - **AWS Bedrock Agent Core Runtime**: Advanced AI agent with planning, reasoning, and tool execution
 - **Multi-Tenant Authentication**: Cognito JWT with tenant isolation and admin role management
