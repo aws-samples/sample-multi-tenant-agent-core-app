@@ -3,51 +3,407 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Tenant Bedrock Chat</title>
+    <title>AWS Bedrock Agent Core</title>
     <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amazon+Ember:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --aws-orange: #FF9900;
+            --aws-dark: #232F3E;
+            --aws-light: #FFFFFF;
+            --aws-gray: #545B64;
+            --aws-border: #D5DBDB;
+            --aws-bg: #FAFAFA;
+            --aws-hover: #EC7211;
+        }
+        
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #232F3E 0%, #37475A 100%);
+            min-height: 100vh;
+            color: var(--aws-dark);
+            line-height: 1.6;
+        }
+        
+        .container { 
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: var(--aws-light);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--aws-orange) 0%, var(--aws-hover) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .logo-text h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--aws-dark);
+            margin-bottom: 2px;
+        }
+        
+        .logo-text p {
+            font-size: 12px;
+            color: var(--aws-gray);
+            font-weight: 400;
+        }
+        
         .login-form, .chat-interface { display: none; }
         .login-form.active, .chat-interface.active { display: block; }
-        .form-group { margin: 15px 0; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input, select, button { padding: 15px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 16px; }
-        #messageInput { 
-            padding: 25px; 
-            font-size: 20px; 
-            min-height: 80px; 
-            background-color: #ffffff; 
-            color: #333333; 
-            border: 2px solid #007bff; 
-            line-height: 1.5;
+        
+        .card {
+            background: var(--aws-light);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
-        #messageInput:focus {
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--aws-dark);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--aws-border);
+        }
+        
+        .form-group { margin-bottom: 20px; }
+        
+        label { 
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--aws-dark);
+            font-size: 14px;
+        }
+        
+        input, select { 
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--aws-border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            background: var(--aws-light);
+        }
+        
+        input:focus, select:focus {
             outline: none;
-            border-color: #0056b3;
-            box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+            border-color: var(--aws-orange);
+            box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.1);
         }
-        button { background-color: #007bff; color: white; cursor: pointer; margin-top: 10px; }
-        button:hover { background-color: #0056b3; }
-        .chat-box { border: 1px solid #ddd; height: 400px; overflow-y: scroll; padding: 15px; margin: 15px 0; background-color: #fafafa; }
-        .message { margin: 10px 0; padding: 10px; border-radius: 8px; }
-        .user { background-color: #007bff; color: white; text-align: right; }
-        .agent { background-color: #e9ecef; }
-        .tenant-info { background-color: #d4edda; padding: 15px; margin: 15px 0; border-radius: 4px; border: 1px solid #c3e6cb; }
-        .error { color: #dc3545; margin: 10px 0; }
-        .success { color: #28a745; margin: 10px 0; }
-        .input-group { display: flex; gap: 10px; margin: 10px 0; }
-        .logout-btn { background-color: #dc3545; }
-        .logout-btn:hover { background-color: #c82333; }
+        
+        button { 
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--aws-orange) 0%, var(--aws-hover) 100%);
+            color: var(--aws-light);
+            width: 100%;
+            padding: 14px;
+            font-size: 15px;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 153, 0, 0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--aws-dark);
+            color: var(--aws-light);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--aws-gray);
+        }
+        
+        .btn-danger {
+            background: #D13212;
+            color: var(--aws-light);
+        }
+        
+        .btn-danger:hover {
+            background: #A82A0C;
+        }
+        
+        .chat-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .chat-box { 
+            background: var(--aws-light);
+            border-radius: 12px;
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.05);
+            scroll-behavior: smooth;
+        }
+        
+        .chat-box::-webkit-scrollbar { width: 8px; }
+        .chat-box::-webkit-scrollbar-track { background: var(--aws-bg); border-radius: 10px; }
+        .chat-box::-webkit-scrollbar-thumb { background: var(--aws-border); border-radius: 10px; }
+        .chat-box::-webkit-scrollbar-thumb:hover { background: var(--aws-gray); }
+        
+        .message { 
+            margin-bottom: 16px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user { 
+            background: linear-gradient(135deg, var(--aws-orange) 0%, var(--aws-hover) 100%);
+            color: var(--aws-light);
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.agent { 
+            background: var(--aws-bg);
+            color: var(--aws-dark);
+            border: 1px solid var(--aws-border);
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message.system {
+            background: var(--aws-dark);
+            color: var(--aws-light);
+            text-align: center;
+            margin: 10px auto;
+            font-size: 12px;
+            max-width: 60%;
+        }
+        
+        .message strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .input-area {
+            background: var(--aws-light);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .message-input-group {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        #messageInput { 
+            flex: 1;
+            padding: 16px;
+            font-size: 15px;
+            min-height: 60px;
+            resize: vertical;
+            border: 2px solid var(--aws-border);
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        #messageInput:focus {
+            border-color: var(--aws-orange);
+            box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.1);
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, var(--aws-orange) 0%, var(--aws-hover) 100%);
+            color: var(--aws-light);
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-size: 15px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 153, 0, 0.3);
+        }
+        
+        .user-info-card {
+            background: linear-gradient(135deg, var(--aws-dark) 0%, #37475A 100%);
+            color: var(--aws-light);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        .user-info-card h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-info-card p {
+            margin: 8px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .user-info-card strong {
+            color: var(--aws-orange);
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .action-btn {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .btn-info { background: #0972D3; color: white; }
+        .btn-success { background: #037F0C; color: white; }
+        .btn-warning { background: #FF9900; color: white; }
+        .btn-admin { background: #D13212; color: white; }
+        
+        .info-panel {
+            background: var(--aws-light);
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .info-panel::-webkit-scrollbar { width: 8px; }
+        .info-panel::-webkit-scrollbar-track { background: var(--aws-bg); border-radius: 10px; }
+        .info-panel::-webkit-scrollbar-thumb { background: var(--aws-border); border-radius: 10px; }
+        
+        .error { 
+            background: #FDECEA;
+            color: #D13212;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #D13212;
+        }
+        
+        .success { 
+            background: #E9F7EF;
+            color: #037F0C;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #037F0C;
+        }
+        
+        .divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--aws-border), transparent);
+            margin: 30px 0;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-premium { background: #FFD700; color: #232F3E; }
+        .badge-advanced { background: #0972D3; color: white; }
+        .badge-basic { background: #545B64; color: white; }
+        .badge-admin { background: #D13212; color: white; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🤖 Multi-Tenant Bedrock Chat</h1>
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">🤖</div>
+                <div class="logo-text">
+                    <h1>AWS Bedrock Agent Core</h1>
+                    <p>Multi-Tenant AI Chat Platform</p>
+                </div>
+            </div>
+        </div>
         
         <!-- Login Form -->
         <div id="loginForm" class="login-form active">
-            <h2>Login</h2>
+            <div class="card">
+                <h2 class="card-title">🔑 Sign In</h2>
             <div class="form-group">
                 <label for="email">Email:</label>
                 <input type="email" id="email" placeholder="user@company.com" required>
@@ -56,11 +412,20 @@
                 <label for="password">Password:</label>
                 <input type="password" id="password" required>
             </div>
-            <button onclick="login()">Login</button>
+            <button class="btn-primary" onclick="login()">Sign In</button>
             <div id="loginError" class="error"></div>
             
-            <hr style="margin: 30px 0;">
-            <h3>New User Registration</h3>
+            <div style="text-align: center; margin-top: 20px;">
+                <p style="color: var(--aws-gray); margin-bottom: 10px;">Don't have an account?</p>
+                <button class="btn-secondary" onclick="showRegisterForm()" style="width: 100%;">Create Account</button>
+            </div>
+            </div>
+        </div>
+        
+        <!-- Registration Form -->
+        <div id="registerForm" class="login-form">
+            <div class="card">
+                <h2 class="card-title">✨ Create Account</h2>
             <div class="form-group">
                 <label for="regFirstName">First Name:</label>
                 <input type="text" id="regFirstName" placeholder="John" required>
@@ -100,46 +465,61 @@
                     <option value="admin">Admin (Cost Reports Access)</option>
                 </select>
             </div>
-            <button onclick="register()">Register</button>
+            <button class="btn-primary" onclick="register()">Create Account</button>
             <div id="registerError" class="error"></div>
             <div id="registerSuccess" class="success"></div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <p style="color: var(--aws-gray); margin-bottom: 10px;">Already have an account?</p>
+                <button class="btn-secondary" onclick="showLoginForm()" style="width: 100%;">Back to Sign In</button>
+            </div>
+            </div>
         </div>
 
         <!-- Chat Interface -->
         <div id="chatInterface" class="chat-interface">
-            <div class="tenant-info">
-                <h3>Welcome!</h3>
+            <div class="user-info-card">
+                <h3>👋 Welcome Back!</h3>
                 <div id="userInfo"></div>
-                <button class="logout-btn" onclick="logout()">Logout</button>
+                <button class="btn-danger" style="margin-top: 15px; width: auto;" onclick="logout()">Sign Out</button>
             </div>
             
-            <div id="chatBox" class="chat-box"></div>
-            
-            <div class="input-group">
-                <textarea id="messageInput" placeholder="Type your message here..." style="flex: 1; padding: 25px; font-size: 20px; min-height: 100px; background-color: #ffffff; color: #333333; border: 2px solid #007bff; resize: vertical; font-family: Arial, sans-serif;"></textarea>
-                <button onclick="sendMessage()" style="padding: 25px 35px; font-size: 20px; min-height: 100px; margin-left: 10px;">Send</button>
+            <div class="chat-container">
+                <div class="card" style="padding: 0;">
+                    <div id="chatBox" class="chat-box"></div>
+                </div>
+                
+                <div class="input-area">
+                    <div class="message-input-group">
+                        <textarea id="messageInput" placeholder="Type your message here..."></textarea>
+                        <button class="send-btn" onclick="sendMessage()">
+                            <span>➤</span>
+                            <span>Send</span>
+                        </button>
+                    </div>
+                </div>
             </div>
             
-            <div class="input-group">
-                <button onclick="getUsage()">View Usage</button>
-                <button onclick="getSessions()">View Sessions</button>
-                <button onclick="getSubscriptionInfo()">Subscription Info</button>
-                <button onclick="getMCPTools()">MCP Tools</button>
+            <div class="card">
+                <h3 class="card-title">🛠️ Quick Actions</h3>
+                <div class="action-grid">
+                    <button class="action-btn btn-info" onclick="getUsage()">📊 Usage</button>
+                    <button class="action-btn btn-info" onclick="getSessions()">📝 Sessions</button>
+                    <button class="action-btn btn-info" onclick="getSubscriptionInfo()">🎯 Subscription</button>
+                </div>
+                
+                <div id="adminControls" style="display: none; margin-top: 20px;">
+                    <h3 class="card-title" style="margin-top: 20px;">🔒 Admin Controls</h3>
+                    <div class="action-grid">
+                        <button class="action-btn btn-admin" onclick="getAdminOverallCost()">Overall Cost</button>
+                        <button class="action-btn btn-admin" onclick="getAdminPerUserCost()">Per User Cost</button>
+                        <button class="action-btn btn-admin" onclick="getAdminServiceCost()">Service Cost</button>
+                        <button class="action-btn btn-admin" onclick="getComprehensiveReport()">Full Report</button>
+                    </div>
+                </div>
             </div>
             
-            <div class="input-group">
-                <button onclick="getCostReport()" style="background-color: #28a745;">💰 Cost Report</button>
-                <button onclick="getUserCosts()" style="background-color: #17a2b8;">👤 My Costs</button>
-            </div>
-            
-            <div class="input-group" id="adminControls" style="display: none;">
-                <button onclick="getAdminOverallCost()" style="background-color: #dc3545;">🔒 Admin: Overall Cost</button>
-                <button onclick="getAdminPerUserCost()" style="background-color: #fd7e14;">🔒 Admin: Per User</button>
-                <button onclick="getAdminServiceCost()" style="background-color: #6610f2;">🔒 Admin: Service-wise</button>
-                <button onclick="getComprehensiveReport()" style="background-color: #e83e8c;">🔒 Admin: Full Report</button>
-            </div>
-            
-            <div id="usageInfo"></div>
+            <div id="usageInfo" class="info-panel" style="display: none;"></div>
         </div>
     </div>
 
@@ -256,11 +636,14 @@
             document.getElementById('loginForm').classList.remove('active');
             document.getElementById('chatInterface').classList.add('active');
             
+            const tierBadge = currentUser.subscription_tier === 'premium' ? 'badge-premium' : 
+                             currentUser.subscription_tier === 'advanced' ? 'badge-advanced' : 'badge-basic';
+            
             document.getElementById('userInfo').innerHTML = 
-                `<strong>User:</strong> ${currentUser.email}<br>
-                 <strong>Organization:</strong> ${currentUser.tenant_id}<br>
-                 <strong>Subscription:</strong> ${currentUser.subscription_tier.toUpperCase()}<br>
-                 <strong>User ID:</strong> ${currentUser.user_id}`;
+                `<p><strong>Email:</strong> ${currentUser.email}</p>
+                 <p><strong>Organization:</strong> ${currentUser.tenant_id}</p>
+                 <p><strong>Subscription:</strong> <span class="badge ${tierBadge}">${currentUser.subscription_tier}</span></p>
+                 <p><strong>User ID:</strong> ${currentUser.user_id}</p>`;
             
             // Check if user is admin and show admin controls
             checkAdminAccess();
@@ -278,7 +661,8 @@
                     const adminData = await response.json();
                     document.getElementById('adminControls').style.display = 'block';
                     document.getElementById('userInfo').innerHTML += 
-                        `<br><strong style="color: #dc3545;">🔒 ADMIN ACCESS</strong> for: ${adminData.admin_tenants.join(', ')}`;
+                        `<p><strong>Role:</strong> <span class="badge badge-admin">Admin</span></p>
+                         <p style="font-size: 12px; opacity: 0.8;">Admin access for: ${adminData.admin_tenants.join(', ')}</p>`;
                 }
             } catch (error) {
                 // User is not admin, keep admin controls hidden
@@ -365,11 +749,14 @@
                 
                 if (response.ok) {
                     const usage = await response.json();
-                    document.getElementById('usageInfo').innerHTML = 
-                        `<h3>Usage for ${usage.tenant_id}</h3>
-                         <p>Total Messages: ${usage.total_messages}</p>
-                         <p>Active Sessions: ${usage.sessions}</p>
-                         <pre>${JSON.stringify(usage.metrics, null, 2)}</pre>`;
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
+                    infoPanel.innerHTML = 
+                        `<h3 class="card-title">📊 Usage Statistics</h3>
+                         <p><strong>Organization:</strong> ${usage.tenant_id}</p>
+                         <p><strong>Total Messages:</strong> ${usage.total_messages}</p>
+                         <p><strong>Active Sessions:</strong> ${usage.sessions}</p>
+                         <pre style="background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(usage.metrics, null, 2)}</pre>`;
                 }
             } catch (error) {
                 console.error('Error getting usage:', error);
@@ -386,40 +773,15 @@
                 
                 if (response.ok) {
                     const sessions = await response.json();
-                    document.getElementById('usageInfo').innerHTML = 
-                        `<h3>Sessions for ${sessions.tenant_id}</h3>
-                         <pre>${JSON.stringify(sessions.sessions, null, 2)}</pre>`;
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
+                    infoPanel.innerHTML = 
+                        `<h3 class="card-title">📝 Active Sessions</h3>
+                         <p><strong>Organization:</strong> ${sessions.tenant_id}</p>
+                         <pre style="background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(sessions.sessions, null, 2)}</pre>`;
                 }
             } catch (error) {
                 console.error('Error getting sessions:', error);
-            }
-        }
-
-        async function getSubscriptionInfo() {
-            if (!currentUser) return;
-            
-            try {
-                const response = await fetch(`${CONFIG.apiUrl}/api/tenants/${currentUser.tenant_id}/subscription`, {
-                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
-                });
-                
-                if (response.ok) {
-                    const info = await response.json();
-                    document.getElementById('usageInfo').innerHTML = 
-                        `<h3>🏷️ Subscription: ${info.subscription_tier.toUpperCase()}</h3>
-                         <h4>Limits:</h4>
-                         <p>Daily Messages: ${info.limits.daily_messages}</p>
-                         <p>Monthly Messages: ${info.limits.monthly_messages}</p>
-                         <p>Session Duration: ${info.limits.max_session_duration} minutes</p>
-                         <p>Concurrent Sessions: ${info.limits.concurrent_sessions}</p>
-                         <p>MCP Access: ${info.limits.mcp_server_access ? '✅' : '❌'}</p>
-                         <h4>Current Usage:</h4>
-                         <p>Daily: ${info.current_usage.daily_usage}/${info.limits.daily_messages}</p>
-                         <p>Monthly: ${info.current_usage.monthly_usage}/${info.limits.monthly_messages}</p>
-                         <p>Active Sessions: ${info.current_usage.active_sessions}/${info.limits.concurrent_sessions}</p>`;
-                }
-            } catch (error) {
-                console.error('Error getting subscription info:', error);
             }
         }
 
@@ -433,22 +795,62 @@
                 
                 if (response.ok) {
                     const tools = await response.json();
-                    let toolsHtml = `<h3>🔧 MCP Tools (${tools.subscription_tier.toUpperCase()})</h3>`;
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
+                    let toolsHtml = `<h3 class="card-title">🔧 MCP Tools</h3>
+                                    <p><strong>Subscription:</strong> <span class="badge badge-${tools.subscription_tier}">${tools.subscription_tier}</span></p>`;
                     
                     if (tools.available_tools.length === 0) {
-                        toolsHtml += '<p>❌ No MCP tools available for your subscription tier</p>';
+                        toolsHtml += '<div style="background: #FDECEA; padding: 15px; border-radius: 8px; margin-top: 15px;"><p>❌ No MCP tools available for your subscription tier</p></div>';
                     } else {
-                        toolsHtml += '<p>Available tools:</p><ul>';
+                        toolsHtml += '<div style="background: var(--aws-bg); padding: 20px; border-radius: 8px; margin-top: 15px;"><h4 style="margin-bottom: 15px;">Available Tools:</h4><div class="action-grid">';
                         tools.available_tools.forEach(tool => {
-                            toolsHtml += `<li><button onclick="testMCPTool('${tool}')">${tool}</button></li>`;
+                            toolsHtml += `<button class="action-btn btn-warning" onclick="testMCPTool('${tool}')">${tool}</button>`;
                         });
-                        toolsHtml += '</ul>';
+                        toolsHtml += '</div></div>';
                     }
                     
-                    document.getElementById('usageInfo').innerHTML = toolsHtml;
+                    infoPanel.innerHTML = toolsHtml;
                 }
             } catch (error) {
                 console.error('Error getting MCP tools:', error);
+            }
+        }
+
+        async function getSubscriptionInfo() {
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch(`${CONFIG.apiUrl}/api/tenants/${currentUser.tenant_id}/subscription`, {
+                    headers: { 'Authorization': `Bearer ${currentUser.token}` }
+                });
+                
+                if (response.ok) {
+                    const info = await response.json();
+                    const tierBadge = info.subscription_tier === 'premium' ? 'badge-premium' : 
+                                     info.subscription_tier === 'advanced' ? 'badge-advanced' : 'badge-basic';
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
+                    infoPanel.innerHTML = 
+                        `<h3 class="card-title">🎯 Subscription Details</h3>
+                         <p><strong>Tier:</strong> <span class="badge ${tierBadge}">${info.subscription_tier}</span></p>
+                         <div style="background: var(--aws-bg); padding: 20px; border-radius: 8px; margin: 15px 0;">
+                             <h4 style="margin-bottom: 15px; color: var(--aws-dark);">Plan Limits</h4>
+                             <p>• Daily Messages: <strong>${info.limits.daily_messages}</strong></p>
+                             <p>• Monthly Messages: <strong>${info.limits.monthly_messages}</strong></p>
+                             <p>• Session Duration: <strong>${info.limits.max_session_duration} minutes</strong></p>
+                             <p>• Concurrent Sessions: <strong>${info.limits.concurrent_sessions}</strong></p>
+                             <p>• MCP Access: ${info.limits.mcp_server_access ? '<strong style="color: #037F0C;">✅ Enabled</strong>' : '<strong style="color: #D13212;">❌ Disabled</strong>'}</p>
+                         </div>
+                         <div style="background: linear-gradient(135deg, #E9F7EF 0%, #D4EDDA 100%); padding: 20px; border-radius: 8px;">
+                             <h4 style="margin-bottom: 15px; color: var(--aws-dark);">Current Usage</h4>
+                             <p>• Daily: <strong>${info.current_usage.daily_usage}/${info.limits.daily_messages}</strong> (${((info.current_usage.daily_usage/info.limits.daily_messages)*100).toFixed(1)}%)</p>
+                             <p>• Monthly: <strong>${info.current_usage.monthly_usage}/${info.limits.monthly_messages}</strong> (${((info.current_usage.monthly_usage/info.limits.monthly_messages)*100).toFixed(1)}%)</p>
+                             <p>• Active Sessions: <strong>${info.current_usage.active_sessions}/${info.limits.concurrent_sessions}</strong></p>
+                         </div>`;
+                }
+            } catch (error) {
+                console.error('Error getting subscription info:', error);
             }
         }
 
@@ -546,26 +948,30 @@
                 
                 if (response.ok) {
                     const data = await response.json();
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
                     const costHtml = `
-                        <h3>💰 Cost Report (${daysParam} days)</h3>
-                        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
-                            <h4>Total Cost: $${data.total_cost.toFixed(4)}</h4>
-                            <p><strong>Bedrock:</strong> $${data.cost_breakdown.bedrock_costs.toFixed(4)}</p>
-                            <p><strong>Weather API:</strong> $${data.cost_breakdown.weather_api_costs.toFixed(4)}</p>
-                            <p><strong>Agent Runtime:</strong> $${data.cost_breakdown.agent_runtime_costs.toFixed(4)}</p>
-                            <p><strong>Total Invocations:</strong> ${data.cost_breakdown.total_invocations}</p>
-                            <p><strong>Total Tokens:</strong> ${data.cost_breakdown.total_tokens.input + data.cost_breakdown.total_tokens.output}</p>
+                        <h3 class="card-title">💰 Cost Report (${daysParam} days)</h3>
+                        <div style="background: linear-gradient(135deg, #FFF3CD 0%, #FFE69C 100%); padding: 20px; border-radius: 8px; margin: 15px 0;">
+                            <h4 style="color: var(--aws-dark); margin-bottom: 15px;">Total Cost: $${data.total_cost.toFixed(4)}</h4>
+                            <p>• <strong>Bedrock:</strong> $${data.cost_breakdown.bedrock_costs.toFixed(4)}</p>
+                            <p>• <strong>Weather API:</strong> $${data.cost_breakdown.weather_api_costs.toFixed(4)}</p>
+                            <p>• <strong>Agent Runtime:</strong> $${data.cost_breakdown.agent_runtime_costs.toFixed(4)}</p>
+                            <p>• <strong>Total Invocations:</strong> ${data.cost_breakdown.total_invocations}</p>
+                            <p>• <strong>Total Tokens:</strong> ${data.cost_breakdown.total_tokens.input + data.cost_breakdown.total_tokens.output}</p>
                         </div>
-                        <h4>User Breakdown:</h4>
-                        <div style="max-height: 200px; overflow-y: auto;">
+                        <h4 style="margin: 20px 0 10px 0;">User Breakdown:</h4>
+                        <div style="max-height: 250px; overflow-y: auto; background: var(--aws-bg); padding: 15px; border-radius: 8px;">
                             ${Object.entries(data.users).map(([userId, userCost]) => 
-                                `<p><strong>${userId}:</strong> $${userCost.total_cost.toFixed(4)} (${userCost.invocations} invocations)</p>`
+                                `<p style="padding: 8px; margin: 5px 0; background: white; border-radius: 4px;"><strong>${userId}:</strong> $${userCost.total_cost.toFixed(4)} <span style="color: var(--aws-gray); font-size: 12px;">(${userCost.invocations} invocations)</span></p>`
                             ).join('')}
                         </div>
                     `;
-                    document.getElementById('usageInfo').innerHTML = costHtml;
+                    infoPanel.innerHTML = costHtml;
                 } else {
-                    document.getElementById('usageInfo').innerHTML = '<p>Error loading cost report</p>';
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
+                    infoPanel.innerHTML = '<p class="error">Error loading cost report</p>';
                 }
             } catch (error) {
                 console.error('Error getting cost report:', error);
@@ -585,20 +991,24 @@
                 
                 if (response.ok) {
                     const data = await response.json();
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
                     const userCostHtml = `
-                        <h3>👤 My Costs (${daysParam} days)</h3>
-                        <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 10px 0;">
-                            <h4>My Total Cost: $${data.total_cost.toFixed(4)}</h4>
-                            <p><strong>Bedrock:</strong> $${data.bedrock_cost.toFixed(4)}</p>
-                            <p><strong>Weather API:</strong> $${data.weather_api_cost.toFixed(4)}</p>
-                            <p><strong>Agent Runtime:</strong> $${data.agent_runtime_cost.toFixed(4)}</p>
-                            <p><strong>My Invocations:</strong> ${data.invocations}</p>
-                            <p><strong>My Tokens:</strong> ${data.tokens.input + data.tokens.output} (${data.tokens.input} input, ${data.tokens.output} output)</p>
+                        <h3 class="card-title">👤 My Costs (${daysParam} days)</h3>
+                        <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); padding: 20px; border-radius: 8px; margin: 15px 0;">
+                            <h4 style="color: var(--aws-dark); margin-bottom: 15px;">My Total Cost: $${data.total_cost.toFixed(4)}</h4>
+                            <p>• <strong>Bedrock:</strong> $${data.bedrock_cost.toFixed(4)}</p>
+                            <p>• <strong>Weather API:</strong> $${data.weather_api_cost.toFixed(4)}</p>
+                            <p>• <strong>Agent Runtime:</strong> $${data.agent_runtime_cost.toFixed(4)}</p>
+                            <p>• <strong>My Invocations:</strong> ${data.invocations}</p>
+                            <p>• <strong>My Tokens:</strong> ${data.tokens.input + data.tokens.output} <span style="color: var(--aws-gray); font-size: 12px;">(${data.tokens.input} input, ${data.tokens.output} output)</span></p>
                         </div>
                     `;
-                    document.getElementById('usageInfo').innerHTML = userCostHtml;
+                    infoPanel.innerHTML = userCostHtml;
                 } else {
-                    document.getElementById('usageInfo').innerHTML = '<p>Error loading your cost report</p>';
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
+                    infoPanel.innerHTML = '<p class="error">Error loading your cost report</p>';
                 }
             } catch (error) {
                 console.error('Error getting user costs:', error);
@@ -618,20 +1028,28 @@
                 
                 if (response.ok) {
                     const data = await response.json();
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
                     const adminHtml = `
-                        <h3>🔒 ADMIN: Overall Tenant Cost (${daysParam} days)</h3>
-                        <div style="background: #fff3cd; padding: 15px; border-radius: 5px; border: 1px solid #ffeaa7;">
-                            <h4>Total: $${data.total_cost.toFixed(4)}</h4>
-                            <h5>Service Breakdown:</h5>
+                        <h3 class="card-title">🔒 ADMIN: Overall Tenant Cost (${daysParam} days)</h3>
+                        <div style="background: linear-gradient(135deg, #FDECEA 0%, #F8D7DA 100%); padding: 20px; border-radius: 8px; border: 2px solid #D13212;">
+                            <h4 style="color: var(--aws-dark); margin-bottom: 15px;">Total: $${data.total_cost.toFixed(4)}</h4>
+                            <h5 style="margin: 15px 0 10px 0;">Service Breakdown:</h5>
                             ${Object.entries(data.service_breakdown).map(([service, cost]) => 
-                                `<p><strong>${service}:</strong> $${cost.toFixed(4)} (${data.cost_per_service_percentage[service].toFixed(1)}%)</p>`
+                                `<p style="padding: 8px; margin: 5px 0; background: white; border-radius: 4px;"><strong>${service}:</strong> $${cost.toFixed(4)} <span class="badge badge-admin">${data.cost_per_service_percentage[service].toFixed(1)}%</span></p>`
                             ).join('')}
                         </div>
                     `;
-                    document.getElementById('usageInfo').innerHTML = adminHtml;
+                    infoPanel.innerHTML = adminHtml;
+                } else {
+                    const infoPanel = document.getElementById('usageInfo');
+                    infoPanel.style.display = 'block';
+                    infoPanel.innerHTML = '<p class="error">Admin access required</p>';
                 }
             } catch (error) {
-                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+                const infoPanel = document.getElementById('usageInfo');
+                infoPanel.style.display = 'block';
+                infoPanel.innerHTML = '<p class="error">Admin access required</p>';
             }
         }
         
@@ -731,6 +1149,16 @@
             }
         }
 
+        function showRegisterForm() {
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('registerForm').classList.add('active');
+        }
+        
+        function showLoginForm() {
+            document.getElementById('registerForm').classList.remove('active');
+            document.getElementById('loginForm').classList.add('active');
+        }
+        
         function logout() {
             if (cognitoUser) {
                 cognitoUser.signOut();
@@ -740,6 +1168,7 @@
             cognitoUser = null;
             
             document.getElementById('chatInterface').classList.remove('active');
+            document.getElementById('registerForm').classList.remove('active');
             document.getElementById('loginForm').classList.add('active');
             document.getElementById('chatBox').innerHTML = '';
             document.getElementById('usageInfo').innerHTML = '';
