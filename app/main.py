@@ -376,7 +376,7 @@ app.mount("/static", StaticFiles(directory="frontend"), name="static")
 @app.get("/", response_class=HTMLResponse)
 async def get_chat_interface():
     """Serve the chat interface with Cognito registration"""
-    with open("frontend/index.html", "r") as f:
+    with open("frontend/index.html", "r", encoding="utf-8") as f:
         return f.read()
 
 if __name__ == "__main__":

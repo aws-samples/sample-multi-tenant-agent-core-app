@@ -49,7 +49,7 @@ def setup_weather_api():
         
         # Read existing .env if it exists
         if os.path.exists(env_file):
-            with open(env_file, 'r') as f:
+            with open(env_file, 'r', encoding='utf-8') as f:
                 env_content = f.readlines()
         
         # Update or add OPENWEATHER_API_KEY
@@ -64,7 +64,7 @@ def setup_weather_api():
             env_content.append(f'OPENWEATHER_API_KEY={api_key}\n')
         
         # Write back to .env
-        with open(env_file, 'w') as f:
+        with open(env_file, 'w', encoding='utf-8') as f:
             f.writelines(env_content)
         
         print(f"✅ API key saved to {env_file}")

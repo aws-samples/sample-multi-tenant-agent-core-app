@@ -63,8 +63,17 @@ Always use tenant_id from session attributes for context. Provide responses tail
             PolicyArn="arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
         )
         
-        # Wait for role to be available
-        time.sleep(10)
+        # Wait for IAM role to propagate using exponential backoff
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                iam.get_role(RoleName=role_name)
+                break
+            except Exception:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                else:
+                    raise
         
         # Create Bedrock Agent
         agent_response = bedrock_agent.create_agent(
