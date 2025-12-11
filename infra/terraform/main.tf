@@ -11,6 +11,25 @@ provider "aws" {
   region = var.aws_region
 }
 
+data "aws_caller_identity" "current" {}
+
+# KMS Key for DynamoDB Encryption
+resource "aws_kms_key" "dynamodb_key" {
+  description             = "KMS key for DynamoDB table encryption"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+
+  tags = {
+    Name        = "DynamoDB-Encryption-Key"
+    Environment = var.environment
+  }
+}
+
+resource "aws_kms_alias" "dynamodb_key_alias" {
+  name          = "alias/dynamodb-encryption"
+  target_key_id = aws_kms_key.dynamodb_key.key_id
+}
+
 # DynamoDB Tables
 resource "aws_dynamodb_table" "tenant_sessions" {
   name           = "tenant-sessions"
@@ -24,6 +43,11 @@ resource "aws_dynamodb_table" "tenant_sessions" {
 
   point_in_time_recovery {
     enabled = true
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb_key.arn
   }
 
   tags = {
@@ -46,6 +70,11 @@ resource "aws_dynamodb_table" "tenant_usage" {
   attribute {
     name = "timestamp"
     type = "S"
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb_key.arn
   }
 
   tags = {
@@ -165,11 +194,23 @@ resource "aws_iam_role_policy" "bedrock_policy" {
         Effect = "Allow"
         Action = [
           "bedrock:InvokeAgent",
-          "bedrock:InvokeModel",
+          "bedrock:InvokeModel"
+        ]
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent/*",
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent-alias/*/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "bedrock:GetAgent",
           "bedrock:ListAgents"
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent/*"
+        ]
       }
     ]
   })
