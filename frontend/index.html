@@ -656,11 +656,29 @@
             const tierBadge = currentUser.subscription_tier === 'premium' ? 'badge-premium' : 
                              currentUser.subscription_tier === 'advanced' ? 'badge-advanced' : 'badge-basic';
             
-            document.getElementById('userInfo').innerHTML = 
-                `<p><strong>Email:</strong> ${currentUser.email}</p>
-                 <p><strong>Organization:</strong> ${currentUser.tenant_id}</p>
-                 <p><strong>Subscription:</strong> <span class="badge ${tierBadge}">${currentUser.subscription_tier}</span></p>
-                 <p><strong>User ID:</strong> ${currentUser.user_id}</p>`;
+            const userInfoDiv = document.getElementById('userInfo');
+            userInfoDiv.textContent = '';
+            
+            const emailP = document.createElement('p');
+            emailP.innerHTML = '<strong>Email:</strong> ' + currentUser.email;
+            
+            const orgP = document.createElement('p');
+            orgP.innerHTML = '<strong>Organization:</strong> ' + currentUser.tenant_id;
+            
+            const subP = document.createElement('p');
+            subP.innerHTML = '<strong>Subscription:</strong> ';
+            const badge = document.createElement('span');
+            badge.className = `badge ${tierBadge}`;
+            badge.textContent = currentUser.subscription_tier;
+            subP.appendChild(badge);
+            
+            const userIdP = document.createElement('p');
+            userIdP.innerHTML = '<strong>User ID:</strong> ' + currentUser.user_id;
+            
+            userInfoDiv.appendChild(emailP);
+            userInfoDiv.appendChild(orgP);
+            userInfoDiv.appendChild(subP);
+            userInfoDiv.appendChild(userIdP);
             
             // Check if user is admin and show admin controls
             checkAdminAccess();
@@ -677,9 +695,22 @@
                 if (response.ok) {
                     const adminData = await response.json();
                     document.getElementById('adminControls').style.display = 'block';
-                    document.getElementById('userInfo').innerHTML += 
-                        `<p><strong>Role:</strong> <span class="badge badge-admin">Admin</span></p>
-                         <p style="font-size: 12px; opacity: 0.8;">Admin access for: ${adminData.admin_tenants.join(', ')}</p>`;
+                    const userInfoDiv = document.getElementById('userInfo');
+                    
+                    const roleP = document.createElement('p');
+                    roleP.innerHTML = '<strong>Role:</strong> ';
+                    const adminBadge = document.createElement('span');
+                    adminBadge.className = 'badge badge-admin';
+                    adminBadge.textContent = 'Admin';
+                    roleP.appendChild(adminBadge);
+                    
+                    const accessP = document.createElement('p');
+                    accessP.style.fontSize = '12px';
+                    accessP.style.opacity = '0.8';
+                    accessP.textContent = 'Admin access for: ' + adminData.admin_tenants.join(', ');
+                    
+                    userInfoDiv.appendChild(roleP);
+                    userInfoDiv.appendChild(accessP);
                 }
             } catch (error) {
                 // User is not admin, keep admin controls hidden
@@ -775,12 +806,30 @@
                     const usage = await response.json();
                     const infoPanel = document.getElementById('usageInfo');
                     infoPanel.style.display = 'block';
-                    infoPanel.innerHTML = 
-                        `<h3 class="card-title">📊 Usage Statistics</h3>
-                         <p><strong>Organization:</strong> ${usage.tenant_id}</p>
-                         <p><strong>Total Messages:</strong> ${usage.total_messages}</p>
-                         <p><strong>Active Sessions:</strong> ${usage.sessions}</p>
-                         <pre style="background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(usage.metrics, null, 2)}</pre>`;
+                    infoPanel.textContent = '';
+                    
+                    const title = document.createElement('h3');
+                    title.className = 'card-title';
+                    title.textContent = '📊 Usage Statistics';
+                    
+                    const orgP = document.createElement('p');
+                    orgP.innerHTML = '<strong>Organization:</strong> ' + usage.tenant_id;
+                    
+                    const msgP = document.createElement('p');
+                    msgP.innerHTML = '<strong>Total Messages:</strong> ' + usage.total_messages;
+                    
+                    const sessP = document.createElement('p');
+                    sessP.innerHTML = '<strong>Active Sessions:</strong> ' + usage.sessions;
+                    
+                    const pre = document.createElement('pre');
+                    pre.style.cssText = 'background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;';
+                    pre.textContent = JSON.stringify(usage.metrics, null, 2);
+                    
+                    infoPanel.appendChild(title);
+                    infoPanel.appendChild(orgP);
+                    infoPanel.appendChild(msgP);
+                    infoPanel.appendChild(sessP);
+                    infoPanel.appendChild(pre);
                 }
             } catch (error) {
                 console.error('Error getting usage:', error);
@@ -799,10 +848,22 @@
                     const sessions = await response.json();
                     const infoPanel = document.getElementById('usageInfo');
                     infoPanel.style.display = 'block';
-                    infoPanel.innerHTML = 
-                        `<h3 class="card-title">📝 Active Sessions</h3>
-                         <p><strong>Organization:</strong> ${sessions.tenant_id}</p>
-                         <pre style="background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(sessions.sessions, null, 2)}</pre>`;
+                    infoPanel.textContent = '';
+                    
+                    const title = document.createElement('h3');
+                    title.className = 'card-title';
+                    title.textContent = '📝 Active Sessions';
+                    
+                    const orgP = document.createElement('p');
+                    orgP.innerHTML = '<strong>Organization:</strong> ' + sessions.tenant_id;
+                    
+                    const pre = document.createElement('pre');
+                    pre.style.cssText = 'background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;';
+                    pre.textContent = JSON.stringify(sessions.sessions, null, 2);
+                    
+                    infoPanel.appendChild(title);
+                    infoPanel.appendChild(orgP);
+                    infoPanel.appendChild(pre);
                 }
             } catch (error) {
                 console.error('Error getting sessions:', error);
@@ -834,7 +895,12 @@
                         toolsHtml += '</div></div>';
                     }
                     
-                    infoPanel.innerHTML = toolsHtml;
+                    infoPanel.textContent = '';
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = toolsHtml;
+                    while (tempDiv.firstChild) {
+                        infoPanel.appendChild(tempDiv.firstChild);
+                    }
                 }
             } catch (error) {
                 console.error('Error getting MCP tools:', error);
@@ -855,23 +921,39 @@
                                      info.subscription_tier === 'advanced' ? 'badge-advanced' : 'badge-basic';
                     const infoPanel = document.getElementById('usageInfo');
                     infoPanel.style.display = 'block';
-                    infoPanel.innerHTML = 
-                        `<h3 class="card-title">🎯 Subscription Details</h3>
-                         <p><strong>Tier:</strong> <span class="badge ${tierBadge}">${info.subscription_tier}</span></p>
-                         <div style="background: var(--aws-bg); padding: 20px; border-radius: 8px; margin: 15px 0;">
-                             <h4 style="margin-bottom: 15px; color: var(--aws-dark);">Plan Limits</h4>
-                             <p>• Daily Messages: <strong>${info.limits.daily_messages}</strong></p>
-                             <p>• Monthly Messages: <strong>${info.limits.monthly_messages}</strong></p>
-                             <p>• Session Duration: <strong>${info.limits.max_session_duration} minutes</strong></p>
-                             <p>• Concurrent Sessions: <strong>${info.limits.concurrent_sessions}</strong></p>
-                             <p>• MCP Access: ${info.limits.mcp_server_access ? '<strong style="color: #037F0C;">✅ Enabled</strong>' : '<strong style="color: #D13212;">❌ Disabled</strong>'}</p>
-                         </div>
-                         <div style="background: linear-gradient(135deg, #E9F7EF 0%, #D4EDDA 100%); padding: 20px; border-radius: 8px;">
-                             <h4 style="margin-bottom: 15px; color: var(--aws-dark);">Current Usage</h4>
-                             <p>• Daily: <strong>${info.current_usage.daily_usage}/${info.limits.daily_messages}</strong> (${((info.current_usage.daily_usage/info.limits.daily_messages)*100).toFixed(1)}%)</p>
-                             <p>• Monthly: <strong>${info.current_usage.monthly_usage}/${info.limits.monthly_messages}</strong> (${((info.current_usage.monthly_usage/info.limits.monthly_messages)*100).toFixed(1)}%)</p>
-                             <p>• Active Sessions: <strong>${info.current_usage.active_sessions}/${info.limits.concurrent_sessions}</strong></p>
-                         </div>`;
+                    infoPanel.textContent = '';
+                    
+                    const title = document.createElement('h3');
+                    title.className = 'card-title';
+                    title.textContent = '🎯 Subscription Details';
+                    
+                    const tierP = document.createElement('p');
+                    tierP.innerHTML = '<strong>Tier:</strong> ';
+                    const badge = document.createElement('span');
+                    badge.className = `badge ${tierBadge}`;
+                    badge.textContent = info.subscription_tier;
+                    tierP.appendChild(badge);
+                    
+                    const limitsDiv = document.createElement('div');
+                    limitsDiv.style.cssText = 'background: var(--aws-bg); padding: 20px; border-radius: 8px; margin: 15px 0;';
+                    limitsDiv.innerHTML = `<h4 style="margin-bottom: 15px; color: var(--aws-dark);">Plan Limits</h4>
+                        <p>• Daily Messages: <strong>${info.limits.daily_messages}</strong></p>
+                        <p>• Monthly Messages: <strong>${info.limits.monthly_messages}</strong></p>
+                        <p>• Session Duration: <strong>${info.limits.max_session_duration} minutes</strong></p>
+                        <p>• Concurrent Sessions: <strong>${info.limits.concurrent_sessions}</strong></p>
+                        <p>• MCP Access: ${info.limits.mcp_server_access ? '<strong style="color: #037F0C;">✅ Enabled</strong>' : '<strong style="color: #D13212;">❌ Disabled</strong>'}</p>`;
+                    
+                    const usageDiv = document.createElement('div');
+                    usageDiv.style.cssText = 'background: linear-gradient(135deg, #E9F7EF 0%, #D4EDDA 100%); padding: 20px; border-radius: 8px;';
+                    usageDiv.innerHTML = `<h4 style="margin-bottom: 15px; color: var(--aws-dark);">Current Usage</h4>
+                        <p>• Daily: <strong>${info.current_usage.daily_usage}/${info.limits.daily_messages}</strong> (${((info.current_usage.daily_usage/info.limits.daily_messages)*100).toFixed(1)}%)</p>
+                        <p>• Monthly: <strong>${info.current_usage.monthly_usage}/${info.limits.monthly_messages}</strong> (${((info.current_usage.monthly_usage/info.limits.monthly_messages)*100).toFixed(1)}%)</p>
+                        <p>• Active Sessions: <strong>${info.current_usage.active_sessions}/${info.limits.concurrent_sessions}</strong></p>`;
+                    
+                    infoPanel.appendChild(title);
+                    infoPanel.appendChild(tierP);
+                    infoPanel.appendChild(limitsDiv);
+                    infoPanel.appendChild(usageDiv);
                 }
             } catch (error) {
                 console.error('Error getting subscription info:', error);
@@ -991,11 +1073,20 @@
                             ).join('')}
                         </div>
                     `;
-                    infoPanel.innerHTML = costHtml;
+                    infoPanel.textContent = '';
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = costHtml;
+                    while (tempDiv.firstChild) {
+                        infoPanel.appendChild(tempDiv.firstChild);
+                    }
                 } else {
                     const infoPanel = document.getElementById('usageInfo');
                     infoPanel.style.display = 'block';
-                    infoPanel.innerHTML = '<p class="error">Error loading cost report</p>';
+                    infoPanel.textContent = '';
+                    const errorP = document.createElement('p');
+                    errorP.className = 'error';
+                    errorP.textContent = 'Error loading cost report';
+                    infoPanel.appendChild(errorP);
                 }
             } catch (error) {
                 console.error('Error getting cost report:', error);
@@ -1028,11 +1119,20 @@
                             <p>• <strong>My Tokens:</strong> ${data.tokens.input + data.tokens.output} <span style="color: var(--aws-gray); font-size: 12px;">(${data.tokens.input} input, ${data.tokens.output} output)</span></p>
                         </div>
                     `;
-                    infoPanel.innerHTML = userCostHtml;
+                    infoPanel.textContent = '';
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = userCostHtml;
+                    while (tempDiv.firstChild) {
+                        infoPanel.appendChild(tempDiv.firstChild);
+                    }
                 } else {
                     const infoPanel = document.getElementById('usageInfo');
                     infoPanel.style.display = 'block';
-                    infoPanel.innerHTML = '<p class="error">Error loading your cost report</p>';
+                    infoPanel.textContent = '';
+                    const errorP = document.createElement('p');
+                    errorP.className = 'error';
+                    errorP.textContent = 'Error loading your cost report';
+                    infoPanel.appendChild(errorP);
                 }
             } catch (error) {
                 console.error('Error getting user costs:', error);
@@ -1064,16 +1164,31 @@
                             ).join('')}
                         </div>
                     `;
-                    infoPanel.innerHTML = adminHtml;
+                    infoPanel.textContent = '';
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = adminHtml;
+                    while (tempDiv.firstChild) {
+                        infoPanel.appendChild(tempDiv.firstChild);
+                    }
                 } else {
                     const infoPanel = document.getElementById('usageInfo');
                     infoPanel.style.display = 'block';
-                    infoPanel.innerHTML = '<p class="error">Admin access required</p>';
+                    infoPanel.textContent = '';
+                    const errorP = document.createElement('p');
+                    errorP.className = 'error';
+                    errorP.textContent = 'Admin access required';
+                    infoPanel.appendChild(errorP);
                 }
             } catch (error) {
                 const infoPanel = document.getElementById('usageInfo');
                 infoPanel.style.display = 'block';
-                infoPanel.innerHTML = '<p class="error">Admin access required</p>';
+                const infoPanel = document.getElementById('usageInfo');
+                infoPanel.style.display = 'block';
+                infoPanel.textContent = '';
+                const errorP = document.createElement('p');
+                errorP.className = 'error';
+                errorP.textContent = 'Admin access required';
+                infoPanel.appendChild(errorP);
             }
         }
         
@@ -1097,13 +1212,21 @@
                         </div>`
                     ).join('');
                     
-                    document.getElementById('usageInfo').innerHTML = `
-                        <h3>🔒 ADMIN: Per User Costs (${daysParam} days)</h3>
-                        <div style="max-height: 300px; overflow-y: auto;">${userList}</div>
-                    `;
+                    const usageInfo = document.getElementById('usageInfo');
+                    usageInfo.textContent = '';
+                    
+                    const title = document.createElement('h3');
+                    title.textContent = `🔒 ADMIN: Per User Costs (${daysParam} days)`;
+                    
+                    const div = document.createElement('div');
+                    div.style.cssText = 'max-height: 300px; overflow-y: auto;';
+                    div.innerHTML = userList;
+                    
+                    usageInfo.appendChild(title);
+                    usageInfo.appendChild(div);
                 }
             } catch (error) {
-                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+                const usageInfo = document.getElementById('usageInfo'); usageInfo.textContent = ''; const errorP = document.createElement('p'); errorP.textContent = 'Admin access required'; usageInfo.appendChild(errorP);
             }
         }
         
@@ -1128,13 +1251,21 @@
                         </div>`
                     ).join('');
                     
-                    document.getElementById('usageInfo').innerHTML = `
-                        <h3>🔒 ADMIN: Service-wise Costs (${daysParam} days)</h3>
-                        <div style="max-height: 300px; overflow-y: auto;">${serviceList}</div>
-                    `;
+                    const usageInfo = document.getElementById('usageInfo');
+                    usageInfo.textContent = '';
+                    
+                    const title = document.createElement('h3');
+                    title.textContent = `🔒 ADMIN: Service-wise Costs (${daysParam} days)`;
+                    
+                    const div = document.createElement('div');
+                    div.style.cssText = 'max-height: 300px; overflow-y: auto;';
+                    div.innerHTML = serviceList;
+                    
+                    usageInfo.appendChild(title);
+                    usageInfo.appendChild(div);
                 }
             } catch (error) {
-                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+                const usageInfo = document.getElementById('usageInfo'); usageInfo.textContent = ''; const errorP = document.createElement('p'); errorP.textContent = 'Admin access required'; usageInfo.appendChild(errorP);
             }
         }
         
@@ -1166,10 +1297,16 @@
                             ).join('')}
                         </div>
                     `;
-                    document.getElementById('usageInfo').innerHTML = reportHtml;
+                    const usageInfo = document.getElementById('usageInfo');
+                    usageInfo.textContent = '';
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = reportHtml;
+                    while (tempDiv.firstChild) {
+                        usageInfo.appendChild(tempDiv.firstChild);
+                    }
                 }
             } catch (error) {
-                document.getElementById('usageInfo').innerHTML = '<p>Admin access required</p>';
+                const usageInfo = document.getElementById('usageInfo'); usageInfo.textContent = ''; const errorP = document.createElement('p'); errorP.textContent = 'Admin access required'; usageInfo.appendChild(errorP);
             }
         }
 
@@ -1194,8 +1331,8 @@
             document.getElementById('chatInterface').classList.remove('active');
             document.getElementById('registerForm').classList.remove('active');
             document.getElementById('loginForm').classList.add('active');
-            document.getElementById('chatBox').innerHTML = '';
-            document.getElementById('usageInfo').innerHTML = '';
+            document.getElementById('chatBox').textContent = '';
+            document.getElementById('usageInfo').textContent = '';
             document.getElementById('adminControls').style.display = 'none';
         }
 
