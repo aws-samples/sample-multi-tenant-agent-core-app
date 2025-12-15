@@ -589,7 +589,10 @@
                 
                 if (isAdmin) {
                     const adminMsg = document.createElement('div');
-                    adminMsg.innerHTML = '<strong style="color: #dc3545;">🔒 Admin access will be granted after verification</strong>';
+                    const strongEl = document.createElement('strong');
+                    strongEl.style.color = '#dc3545';
+                    strongEl.textContent = '🔒 Admin access will be granted after verification';
+                    adminMsg.appendChild(strongEl);
                     successDiv.appendChild(adminMsg);
                 }
                 
@@ -660,20 +663,32 @@
             userInfoDiv.textContent = '';
             
             const emailP = document.createElement('p');
-            emailP.innerHTML = '<strong>Email:</strong> ' + currentUser.email;
+            const emailStrong = document.createElement('strong');
+            emailStrong.textContent = 'Email:';
+            emailP.appendChild(emailStrong);
+            emailP.appendChild(document.createTextNode(' ' + currentUser.email));
             
             const orgP = document.createElement('p');
-            orgP.innerHTML = '<strong>Organization:</strong> ' + currentUser.tenant_id;
+            const orgStrong = document.createElement('strong');
+            orgStrong.textContent = 'Organization:';
+            orgP.appendChild(orgStrong);
+            orgP.appendChild(document.createTextNode(' ' + currentUser.tenant_id));
             
             const subP = document.createElement('p');
-            subP.innerHTML = '<strong>Subscription:</strong> ';
+            const subStrong = document.createElement('strong');
+            subStrong.textContent = 'Subscription:';
+            subP.appendChild(subStrong);
+            subP.appendChild(document.createTextNode(' '));
             const badge = document.createElement('span');
             badge.className = `badge ${tierBadge}`;
             badge.textContent = currentUser.subscription_tier;
             subP.appendChild(badge);
             
             const userIdP = document.createElement('p');
-            userIdP.innerHTML = '<strong>User ID:</strong> ' + currentUser.user_id;
+            const userIdStrong = document.createElement('strong');
+            userIdStrong.textContent = 'User ID:';
+            userIdP.appendChild(userIdStrong);
+            userIdP.appendChild(document.createTextNode(' ' + currentUser.user_id));
             
             userInfoDiv.appendChild(emailP);
             userInfoDiv.appendChild(orgP);
@@ -698,7 +713,10 @@
                     const userInfoDiv = document.getElementById('userInfo');
                     
                     const roleP = document.createElement('p');
-                    roleP.innerHTML = '<strong>Role:</strong> ';
+                    const roleStrong = document.createElement('strong');
+                    roleStrong.textContent = 'Role:';
+                    roleP.appendChild(roleStrong);
+                    roleP.appendChild(document.createTextNode(' '));
                     const adminBadge = document.createElement('span');
                     adminBadge.className = 'badge badge-admin';
                     adminBadge.textContent = 'Admin';
@@ -813,13 +831,22 @@
                     title.textContent = '📊 Usage Statistics';
                     
                     const orgP = document.createElement('p');
-                    orgP.innerHTML = '<strong>Organization:</strong> ' + usage.tenant_id;
+                    const orgStrong = document.createElement('strong');
+                    orgStrong.textContent = 'Organization:';
+                    orgP.appendChild(orgStrong);
+                    orgP.appendChild(document.createTextNode(' ' + usage.tenant_id));
                     
                     const msgP = document.createElement('p');
-                    msgP.innerHTML = '<strong>Total Messages:</strong> ' + usage.total_messages;
+                    const msgStrong = document.createElement('strong');
+                    msgStrong.textContent = 'Total Messages:';
+                    msgP.appendChild(msgStrong);
+                    msgP.appendChild(document.createTextNode(' ' + usage.total_messages));
                     
                     const sessP = document.createElement('p');
-                    sessP.innerHTML = '<strong>Active Sessions:</strong> ' + usage.sessions;
+                    const sessStrong = document.createElement('strong');
+                    sessStrong.textContent = 'Active Sessions:';
+                    sessP.appendChild(sessStrong);
+                    sessP.appendChild(document.createTextNode(' ' + usage.sessions));
                     
                     const pre = document.createElement('pre');
                     pre.style.cssText = 'background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;';
@@ -855,7 +882,10 @@
                     title.textContent = '📝 Active Sessions';
                     
                     const orgP = document.createElement('p');
-                    orgP.innerHTML = '<strong>Organization:</strong> ' + sessions.tenant_id;
+                    const orgStrong = document.createElement('strong');
+                    orgStrong.textContent = 'Organization:';
+                    orgP.appendChild(orgStrong);
+                    orgP.appendChild(document.createTextNode(' ' + sessions.tenant_id));
                     
                     const pre = document.createElement('pre');
                     pre.style.cssText = 'background: var(--aws-bg); padding: 15px; border-radius: 8px; overflow-x: auto;';
@@ -928,7 +958,10 @@
                     title.textContent = '🎯 Subscription Details';
                     
                     const tierP = document.createElement('p');
-                    tierP.innerHTML = '<strong>Tier:</strong> ';
+                    const tierStrong = document.createElement('strong');
+                    tierStrong.textContent = 'Tier:';
+                    tierP.appendChild(tierStrong);
+                    tierP.appendChild(document.createTextNode(' '));
                     const badge = document.createElement('span');
                     badge.className = `badge ${tierBadge}`;
                     badge.textContent = info.subscription_tier;
