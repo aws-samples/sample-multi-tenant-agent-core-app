@@ -1,26 +1,26 @@
-# Multi-Tenant AWS Bedrock Agent Core Application
+# Multi-Tenant Amazon Bedrock Agent Core Application
 
-A sample multi-tenant chat application demonstrating **AWS Bedrock Agent Core Runtime**, **Cognito JWT authentication**, **DynamoDB session storage**, and **granular cost attribution**. This code serves as a reference implementation for building similar multi-tenant AI applications.
+A sample multi-tenant chat application demonstrating **Amazon Bedrock Agent Core Runtime**, **Cognito JWT authentication**, **DynamoDB session storage**, and **granular cost attribution**. This code serves as a reference implementation for building similar multi-tenant AI applications.
 
 ## 🎯 Core Concept
 
-This application demonstrates how to leverage **AWS Bedrock Agent Core Runtime** to serve multiple tenants from a single agent deployment by passing **tenant IDs at runtime**. The key innovation is using session attributes to:
+This application demonstrates how to leverage **Amazon Bedrock Agent Core Runtime** to serve multiple tenants from a single agent deployment by passing **tenant IDs at runtime**. The key innovation is using session attributes to:
 
-1. **Dynamic Tenant Routing**: Pass tenant_id and subscription_tier to Agent Core Runtime during each invocation, enabling one agent to serve multiple organizations
+1. **Dynamic Tenant Routing**: Pass tenant_id and subscription_tier to Bedrock Agent Core Runtime during each invocation, enabling one agent to serve multiple organizations
 2. **Subscription-Based Access Control**: Control feature access (models, tools, limits) based on subscription tier passed in session attributes
 3. **Granular Cost Attribution**: Track and attribute costs per tenant and user by capturing tenant context in all observability traces
-4. **Multi-Tenant Isolation**: Ensure complete data separation while sharing the same Agent Core Runtime infrastructure
+4. **Multi-Tenant Isolation**: Ensure complete data separation while sharing the same Bedrock Agent Core Runtime infrastructure
 
 ### How It Works
 
 ```
-User Login → JWT with tenant_id → Session Attributes → Agent Core Runtime
+User Login → JWT with tenant_id → Session Attributes → Bedrock Agent Core Runtime
                                                               ↓
                                     Tenant-specific response + cost tracking
 ```
 
 **Key Benefits:**
-- **Single Agent, Multiple Tenants**: One Agent Core deployment serves all organizations
+- **Single Agent, Multiple Tenants**: One Bedrock Agent Core deployment serves all organizations
 - **Runtime Tenant Context**: No need to deploy separate agents per tenant
 - **Cost Transparency**: Automatic cost attribution per tenant for billing and analytics
 - **Flexible Subscriptions**: Different feature sets and limits per tenant based on their tier
@@ -49,7 +49,7 @@ User Login → JWT with tenant_id → Session Attributes → Agent Core Runtime
 Guardrails can be applied at the model invocation level or integrated with Agent Core Runtime for comprehensive protection across all tenant interactions.
 
 **Use Case**: This sample code demonstrates patterns for building multi-tenant SaaS AI applications where:
-- Multiple organizations share the same Agent Core Runtime infrastructure
+- Multiple organizations share the same Bedrock Agent Core Runtime infrastructure
 - Each tenant gets isolated data and personalized experiences
 - Costs are automatically tracked and attributed per tenant for billing
 - Subscription tiers control access to features, models, and usage limits
@@ -58,19 +58,19 @@ Adapt and extend for your specific requirements.
 
 ## 📖 Overview
 
-### AWS Bedrock Agent Core Runtime
+### Amazon Bedrock Agent Core Runtime
 
-AWS Bedrock Agent Core Runtime is an advanced orchestration layer that enables AI agents to:
+Amazon Bedrock Agent Core Runtime is an advanced orchestration layer that enables AI agents to:
 - **Plan and Reason**: Break down complex queries into actionable steps
 - **Execute Actions**: Invoke tools, APIs, and AWS services dynamically
 - **Maintain Context**: Preserve conversation state and tenant-specific information across sessions
 - **Orchestrate Workflows**: Coordinate multiple tool calls and decision-making processes
 
-This application leverages Agent Core Runtime to provide intelligent, context-aware responses while maintaining strict multi-tenant isolation.
+This application leverages Bedrock Agent Core Runtime to provide intelligent, context-aware responses while maintaining strict multi-tenant isolation.
 
-### Agent Core Observability
+### Bedrock Agent Core Observability
 
-Agent Core Observability provides comprehensive visibility into agent behavior:
+Bedrock Agent Core Observability provides comprehensive visibility into agent behavior:
 - **Trace Analysis**: Complete execution traces showing planning, reasoning, and action steps
 - **Performance Monitoring**: Track response times, token usage, and API call patterns
 - **Cost Attribution**: Granular tracking of costs per tenant, user, and service
@@ -84,22 +84,22 @@ All traces and metrics are captured in DynamoDB for audit trails and cost optimi
 ![Architecture Diagram](architecuture.png)
 
 ### Core Components
-- **AWS Bedrock Agent Core Runtime**: Advanced AI orchestration with planning, reasoning, and tool execution
+- **Amazon Bedrock Agent Core Runtime**: Advanced AI orchestration with planning, reasoning, and tool execution
 - **Bedrock Foundation Models**: Support for Claude, Titan, and other Bedrock models
 - **Multi-Tenant Authentication**: Cognito JWT with tenant isolation and admin role management
 - **Session Management**: DynamoDB-based persistent sessions with tenant-specific isolation
-- **Agent Core Observability**: Complete trace capture, cost attribution, and performance monitoring
+- **Bedrock Agent Core Observability**: Complete trace capture, cost attribution, and performance monitoring
 - **Subscription Tiers**: Basic, Advanced, Premium with usage limits and feature access control
 
 ### System Flow
 ```
-JWT Token → Tenant Context → Session Attributes → Agent Core Runtime → Bedrock Models → Natural Response
+JWT Token → Tenant Context → Session Attributes → Bedrock Agent Core Runtime → Bedrock Models → Natural Response
                                                           ↓
                                                    Observability Traces
 ```
 
 **Session ID Format**: `{tenant_id}-{user_id}-{session_id}`
-**Session Attributes**: Tenant context, subscription tier, and user preferences passed to Agent Core
+**Session Attributes**: Tenant context, subscription tier, and user preferences passed to Bedrock Agent Core
 **Trace Capture**: Complete orchestration, planning, reasoning, and tool execution traces
 **Cost Tracking**: Real-time token usage and cost attribution per tenant/user/service
 
@@ -116,10 +116,10 @@ JWT Token → Tenant Context → Session Attributes → Agent Core Runtime → B
    - Go to "Model access" section
    - Request access to desired models (Claude, Titan, etc.)
    - Wait for approval (usually instant)
-4. **Agent Core Runtime**: Ensure Bedrock Agent features are enabled in your region
+4. **Bedrock Agent Core Runtime**: Ensure Bedrock Agent features are enabled in your region
 
 ### Required AWS Services
-- **AWS Bedrock**: Agent Core Runtime with foundation model access
+- **Amazon Bedrock**: Agent Core Runtime with foundation model access
   - Claude 3 Haiku: `anthropic.claude-3-haiku-20240307-v1:0`
   - Claude 3 Sonnet: `anthropic.claude-3-sonnet-20240229-v1:0`
   - Claude 3.5 Sonnet: `anthropic.claude-3-5-sonnet-20240620-v1:0`
@@ -234,7 +234,7 @@ Application will be available at: **http://localhost:8000**
 ### Tenant Isolation
 - **Session IDs**: `{tenant_id}-{subscription_tier}-{user_id}-{session_id}`
 - **DynamoDB Partitioning**: All data partitioned by tenant_id
-- **Agent Core Context**: Tenant information passed in session attributes
+- **Bedrock Agent Core Context**: Tenant information passed in session attributes
 - **Admin Access**: Cognito Groups for tenant-specific admin privileges
 
 ### User Registration Flow
@@ -244,11 +244,11 @@ Application will be available at: **http://localhost:8000**
 4. **Automatic Group Assignment**: Admin users automatically added to `{tenant-id}-admins` group
 5. **JWT Generation**: Login generates JWT with tenant context and group membership
 
-## 🤖 Agent Core Runtime Integration
+## 🤖 Bedrock Agent Core Runtime Integration
 
 ### Tenant Context Passing
 
-**The core mechanism**: Tenant context is passed to Agent Core Runtime through session attributes at every invocation. This enables:
+**The core mechanism**: Tenant context is passed to Bedrock Agent Core Runtime through session attributes at every invocation. This enables:
 - **Multi-tenant routing**: Single agent serves multiple organizations
 - **Subscription enforcement**: Agent behavior adapts based on tenant's subscription tier
 - **Cost attribution**: All traces include tenant_id for accurate billing
@@ -292,7 +292,7 @@ for event in response['completion']:
         store_trace_for_observability(trace_data, tenant_id, user_id)
 ```
 
-### Agent Core Observability Features
+### Bedrock Agent Core Observability Features
 
 #### Trace Capture
 - **Planning Traces**: Agent's step-by-step reasoning process
@@ -342,7 +342,7 @@ await cost_service.track_usage_cost(
 ### Multi-Tenant Benefits
 
 **Why pass tenant_id at runtime?**
-1. **Cost Efficiency**: One Agent Core deployment instead of one per tenant
+1. **Cost Efficiency**: One Bedrock Agent Core deployment instead of one per tenant
 2. **Simplified Management**: Single agent to maintain and update
 3. **Flexible Scaling**: Add new tenants without infrastructure changes
 4. **Accurate Billing**: Automatic cost attribution per tenant
@@ -355,7 +355,7 @@ await cost_service.track_usage_cost(
 
 ### Why Cost Attribution Matters for Multi-Tenancy
 
-When multiple tenants share the same Agent Core Runtime, accurate cost attribution is critical for:
+When multiple tenants share the same Bedrock Agent Core Runtime, accurate cost attribution is critical for:
 - **Billing**: Charge each tenant for their actual usage
 - **Analytics**: Understand which tenants consume most resources
 - **Optimization**: Identify cost-saving opportunities per tenant
@@ -414,7 +414,7 @@ When multiple tenants share the same Agent Core Runtime, accurate cost attributi
 
 ### Authentication Required Endpoints
 ```bash
-# Chat with Agent Core
+# Chat with Bedrock Agent Core
 POST /api/chat
 Authorization: Bearer <jwt-token>
 
@@ -494,7 +494,7 @@ Configure the model ID in your application based on your use case and cost requi
 ### User Interface
 - **Cognito Registration**: Self-service user registration with tenant selection
 - **Admin Role Selection**: Optional admin privileges during signup
-- **Real-time Chat**: WebSocket-like chat interface with Agent Core
+- **Real-time Chat**: WebSocket-like chat interface with Bedrock Agent Core
 - **Usage Dashboard**: Subscription limits and current usage display
 - **Cost Reports**: User-level cost visibility
 - **Weather Integration**: Natural language weather queries
@@ -511,11 +511,11 @@ Configure the model ID in your application based on your use case and cost requi
 - **Real-time Metrics**: Every API call, token usage, and service consumption tracked
 - **Tenant Analytics**: Aggregated usage patterns per tenant
 - **Cost Attribution**: Automatic cost calculation and attribution
-- **Performance Monitoring**: Agent Core orchestration times, model inference latency, and success rates
+- **Performance Monitoring**: Bedrock Agent Core orchestration times, model inference latency, and success rates
 - **Trace Analysis**: Complete visibility into agent planning, reasoning, and execution steps
 
 ### Trace Analysis
-- **Agent Core Traces**: Complete orchestration, planning, and reasoning traces
+- **Bedrock Agent Core Traces**: Complete orchestration, planning, and reasoning traces
 - **Action Execution Traces**: Tool invocations, API calls, and function executions
 - **Knowledge Base Traces**: RAG operations and retrieval patterns
 - **Performance Traces**: Latency breakdown by orchestration step
@@ -528,7 +528,7 @@ Configure the model ID in your application based on your use case and cost requi
 
 ### Real-Time Weather Integration
 - **Live API Data**: OpenWeatherMap real-time weather information
-- **Natural Language Processing**: Agent Core converts weather data to conversational responses
+- **Natural Language Processing**: Bedrock Agent Core converts weather data to conversational responses
 - **Subscription-Based Access**: Weather tools available based on subscription tier
 - **Error Handling**: Graceful fallbacks for API failures
 
@@ -552,7 +552,7 @@ Watch the application in action:
 
 The demo showcases:
 - User registration and authentication with Cognito
-- Multi-tenant chat interface with Agent Core Runtime
+- Multi-tenant chat interface with Bedrock Agent Core Runtime
 - Real-time weather queries using MCP tools
 - Subscription tier management and usage tracking
 - Admin cost attribution and analytics dashboards
@@ -598,7 +598,7 @@ DEBUG=true python run.py
 - **Development Only**: Application runs on `localhost:8000` - not production-ready
 - **Sample Code**: Use as reference for building your own multi-tenant AI applications
 - **Bedrock Pricing**: Varies by model - Claude 3 Haiku (~$0.25/1M input tokens), Sonnet (~$3/1M input tokens)
-- **Agent Core Runtime**: Additional orchestration costs apply
+- **Bedrock Agent Core Runtime**: Additional orchestration costs apply
 - **DynamoDB**: On-demand billing (pay per request)
 - **Cognito**: Free for first 50,000 monthly active users
 - **Data Storage**: All data stored in your AWS account with tenant isolation
@@ -620,7 +620,7 @@ COMMAND = "cohere.command-text-v14"
 This sample code demonstrates patterns for:
 
 ### Multi-Tenant SaaS AI Applications
-- **Single Agent, Multiple Customers**: One Agent Core Runtime serves all organizations
+- **Single Agent, Multiple Customers**: One Bedrock Agent Core Runtime serves all organizations
 - **Tenant-Specific Experiences**: Personalized responses based on tenant context
 - **Subscription Tiers**: Basic, Advanced, Premium with different feature access
 - **Usage-Based Billing**: Accurate cost attribution per tenant for invoicing
@@ -637,6 +637,6 @@ This sample code demonstrates patterns for:
 - **Cost Transparency**: Show customers their exact AI consumption
 - **Scalable Onboarding**: Add new customers without infrastructure changes
 
-**Key Advantage**: By passing tenant_id at runtime to Agent Core, you can serve unlimited tenants from a single agent deployment while maintaining complete isolation and accurate cost attribution.
+**Key Advantage**: By passing tenant_id at runtime to Bedrock Agent Core, you can serve unlimited tenants from a single agent deployment while maintaining complete isolation and accurate cost attribution.
 
 Adapt and extend this code for your specific requirements. This is a starting point, not a production-ready solution.
