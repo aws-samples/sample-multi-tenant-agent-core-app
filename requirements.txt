@@ -8,4 +8,4 @@ aiofiles==23.2.1
 PyJWT==2.9.0
 cryptography==46.0.1
 requests==2.32.4
-python-dotenv==1.0.0
+python-dotenv==1.2.2
