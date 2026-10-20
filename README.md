@@ -208,14 +208,15 @@ python run.py
 
 Application will be available at: **http://localhost:8000**
 
-### Step 5: Create First User
-1. Open browser to `http://localhost:8000`
-2. Click "Create Account"
-3. Fill in registration details
-4. Select organization and subscription tier
-5. Choose "Admin" role for admin access
-6. Verify email with code sent to your email
-7. Login and start chatting!
+### Step 5: Provision the First User
+
+Self-service registration is disabled. An authorized operator must provision each user in Cognito and set the user's `custom:tenant_id` and `custom:subscription_tier` attributes. For local sample data, configure the Cognito environment variables and run:
+
+```bash
+python scripts/create_test_users_with_tiers.py
+```
+
+Admin users must also be assigned to the appropriate `{tenant-id}-admins` Cognito group through a trusted administrative process. Users can then sign in at `http://localhost:8000`.
 
 ## 🔐 Authentication & Multi-Tenancy
 
@@ -237,12 +238,11 @@ Application will be available at: **http://localhost:8000**
 - **Bedrock Agent Core Context**: Tenant information passed in session attributes
 - **Admin Access**: Cognito Groups for tenant-specific admin privileges
 
-### User Registration Flow
-1. **Self-Service Registration**: Users register with tenant and subscription tier selection
-2. **Admin Role Selection**: Optional admin role during registration
-3. **Email Verification**: Cognito email verification required
-4. **Automatic Group Assignment**: Admin users automatically added to `{tenant-id}-admins` group
-5. **JWT Generation**: Login generates JWT with tenant context and group membership
+### User Provisioning Flow
+1. **Administrative Provisioning**: An authorized operator creates the user in Cognito
+2. **Trusted Tenant Assignment**: The operator sets `custom:tenant_id` and `custom:subscription_tier`; users cannot select or modify these values through the application
+3. **Administrative Assignment**: Authorized operators assign administrators to `{tenant-id}-admins` through a trusted Cognito administration process
+4. **JWT Generation**: Login generates a JWT with the administratively assigned tenant context and group membership
 
 ## 🤖 Bedrock Agent Core Runtime Integration
 
@@ -444,8 +444,9 @@ GET /api/admin/tenants/{tenant_id}/comprehensive-report
 
 # Admin Management
 GET /api/admin/my-tenants
-POST /api/admin/add-to-group
 ```
+
+Admin group membership is managed outside the public application through a trusted Cognito administration process.
 
 ## 🗄️ Data Storage
 
@@ -492,8 +493,7 @@ Configure the model ID in your application based on your use case and cost requi
 ## 🌐 Frontend Features
 
 ### User Interface
-- **Cognito Registration**: Self-service user registration with tenant selection
-- **Admin Role Selection**: Optional admin privileges during signup
+- **Cognito Authentication**: Sign-in for administrator-provisioned users
 - **Real-time Chat**: WebSocket-like chat interface with Bedrock Agent Core
 - **Usage Dashboard**: Subscription limits and current usage display
 - **Cost Reports**: User-level cost visibility
@@ -551,7 +551,7 @@ Watch the application in action:
 ![Demo](Demo.gif)
 
 The demo showcases:
-- User registration and authentication with Cognito
+- User authentication with Cognito
 - Multi-tenant chat interface with Bedrock Agent Core Runtime
 - Real-time weather queries using MCP tools
 - Subscription tier management and usage tracking

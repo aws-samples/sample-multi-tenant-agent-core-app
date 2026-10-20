@@ -65,9 +65,9 @@ resource "aws_kms_alias" "dynamodb_key_alias" {
 
 # DynamoDB Tables
 resource "aws_dynamodb_table" "tenant_sessions" {
-  name           = "tenant-sessions"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "session_key"
+  name         = "tenant-sessions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "session_key"
 
   attribute {
     name = "session_key"
@@ -84,16 +84,16 @@ resource "aws_dynamodb_table" "tenant_sessions" {
   }
 
   tags = {
-    Name = "TenantSessions"
+    Name        = "TenantSessions"
     Environment = var.environment
   }
 }
 
 resource "aws_dynamodb_table" "tenant_usage" {
-  name           = "tenant-usage"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "tenant_id"
-  range_key      = "timestamp"
+  name         = "tenant-usage"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "tenant_id"
+  range_key    = "timestamp"
 
   attribute {
     name = "tenant_id"
@@ -111,7 +111,7 @@ resource "aws_dynamodb_table" "tenant_usage" {
   }
 
   tags = {
-    Name = "TenantUsage"
+    Name        = "TenantUsage"
     Environment = var.environment
   }
 }
@@ -120,21 +120,32 @@ resource "aws_dynamodb_table" "tenant_usage" {
 resource "aws_cognito_user_pool" "multi_tenant_pool" {
   name = "multi-tenant-chat-users"
 
-  username_attributes = ["email"]
+  username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
-  schema {
-    attribute_data_type = "String"
-    name               = "email"
-    required           = true
-    mutable           = true
+  admin_create_user_config {
+    allow_admin_create_user_only = true
   }
 
   schema {
     attribute_data_type = "String"
-    name               = "tenant_id"
-    required           = false
-    mutable           = true
+    name                = "email"
+    required            = true
+    mutable             = true
+  }
+
+  schema {
+    attribute_data_type = "String"
+    name                = "tenant_id"
+    required            = false
+    mutable             = true
+  }
+
+  schema {
+    attribute_data_type = "String"
+    name                = "subscription_tier"
+    required            = false
+    mutable             = true
   }
 
   password_policy {
@@ -152,7 +163,13 @@ resource "aws_cognito_user_pool_client" "multi_tenant_client" {
   user_pool_id = aws_cognito_user_pool.multi_tenant_pool.id
 
   generate_secret = false
-  
+
+  write_attributes = [
+    "email",
+    "family_name",
+    "given_name"
+  ]
+
   explicit_auth_flows = [
     "ADMIN_NO_SRP_AUTH",
     "USER_PASSWORD_AUTH",
@@ -160,7 +177,7 @@ resource "aws_cognito_user_pool_client" "multi_tenant_client" {
   ]
 
   access_token_validity  = 60
-  id_token_validity     = 60
+  id_token_validity      = 60
   refresh_token_validity = 43200
 
   token_validity_units {

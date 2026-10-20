@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from datetime import datetime
 import os
-from .models import ChatMessage, ChatResponse, TenantContext, UsageMetric, SubscriptionTier
+from .models import ChatMessage, ChatResponse, TenantContext, UsageMetric
 from .bedrock_service import BedrockAgentService
 from .agentic_service import AgenticService
 from .dynamodb_store import DynamoDBStore
@@ -14,7 +14,7 @@ from .weather_mcp_service import WeatherMCPClient
 from .mcp_agent_integration import MCPAgentCoreIntegration
 from .cost_attribution import CostAttributionService
 from .admin_cost_service import AdminCostService
-from .admin_auth import get_admin_user, verify_tenant_admin, AdminAuthService
+from .admin_auth import get_admin_user, verify_tenant_admin
 
 app = FastAPI(title="Multi-Tenant Bedrock Chat", version="1.0.0")
 
@@ -265,21 +265,6 @@ async def get_tenant_analytics(tenant_id: str, current_user: dict = Depends(get_
     
     return analytics
 
-@app.get("/api/admin/cost-report")
-async def get_cost_report(tenant_id: str = None, days: int = 30):
-    """Generate comprehensive cost report (admin only)"""
-    # In production, add admin authentication here
-    report = await cost_service.generate_cost_report(tenant_id, days)
-    return report
-
-@app.get("/api/admin/tier-costs/{tier}")
-async def get_tier_costs(tier: str, days: int = 30):
-    """Get cost breakdown by subscription tier (admin only)"""
-    # In production, add admin authentication here
-    subscription_tier = SubscriptionTier(tier)
-    costs = await cost_service.get_subscription_tier_costs(subscription_tier, days)
-    return costs
-
 # Admin-Only Granular Cost Endpoints
 @app.get("/api/admin/tenants/{tenant_id}/overall-cost")
 async def get_admin_tenant_overall_cost(tenant_id: str, days: int = 30, admin_user: dict = Depends(verify_tenant_admin)):
@@ -334,41 +319,6 @@ async def get_admin_tenants(admin_user: dict = Depends(get_admin_user)):
         "admin_email": admin_user["email"],
         "admin_tenants": admin_user["admin_tenants"]
     }
-
-@app.post("/api/admin/add-to-group")
-async def add_user_to_admin_group(request: dict):
-    """Add user to admin group during registration"""
-    from app.admin_auth import AdminAuthService
-    
-    email = request.get("email")
-    tenant_id = request.get("tenant_id")
-    
-    if not email or not tenant_id:
-        raise HTTPException(status_code=400, detail="Email and tenant_id required")
-    
-    admin_service = AdminAuthService()
-    
-    # Create admin groups if they don't exist
-    try:
-        group_name = f"{tenant_id}-admins"
-        admin_service.cognito_client.create_group(
-            GroupName=group_name,
-            UserPoolId=admin_service.user_pool_id,
-            Description=f"{tenant_id.title()} Administrators"
-        )
-    except Exception:
-        pass  # Group may already exist
-    
-    # Add user to admin group
-    try:
-        admin_service.cognito_client.admin_add_user_to_group(
-            UserPoolId=admin_service.user_pool_id,
-            Username=email,
-            GroupName=f"{tenant_id}-admins"
-        )
-        return {"success": True, "message": f"Added {email} to {tenant_id}-admins group"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to add user to admin group: {str(e)}")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="frontend"), name="static")

@@ -40,7 +40,7 @@ class MultiTenantBedrockStack(Stack):
             user_pool_name="multi-tenant-chat-users",
             sign_in_aliases=cognito.SignInAliases(email=True),
             auto_verify=cognito.AutoVerifiedAttrs(email=True),
-            self_sign_up_enabled=True,
+            self_sign_up_enabled=False,
             standard_attributes=cognito.StandardAttributes(
                 email=cognito.StandardAttribute(required=True, mutable=True),
                 given_name=cognito.StandardAttribute(required=True, mutable=True),
@@ -64,6 +64,11 @@ class MultiTenantBedrockStack(Stack):
                 admin_user_password=True
             ),
             generate_secret=False,
+            write_attributes=cognito.ClientAttributes().with_standard_attributes(
+                email=True,
+                given_name=True,
+                family_name=True
+            ),
             access_token_validity=cdk.Duration.hours(1),
             id_token_validity=cdk.Duration.hours(1),
             refresh_token_validity=cdk.Duration.days(30)

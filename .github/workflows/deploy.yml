@@ -129,7 +129,7 @@ jobs:
         echo "   User Pool ID: $USER_POOL_ID"
         echo "   Client ID: $CLIENT_ID"
         echo "🌐 Frontend ready at: http://localhost:8000"
-        echo "📝 Manual user registration available with subscription tier selection"
+        echo "📝 Users must be provisioned by an authorized Cognito administrator"
         
     - name: Create Environment File
       run: |

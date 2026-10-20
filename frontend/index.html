@@ -415,64 +415,7 @@
             <button class="btn-primary" onclick="login()">Sign In</button>
             <div id="loginError" class="error"></div>
             
-            <div style="text-align: center; margin-top: 20px;">
-                <p style="color: var(--aws-gray); margin-bottom: 10px;">Don't have an account?</p>
-                <button class="btn-secondary" onclick="showRegisterForm()" style="width: 100%;">Create Account</button>
-            </div>
-            </div>
-        </div>
-        
-        <!-- Registration Form -->
-        <div id="registerForm" class="login-form">
-            <div class="card">
-                <h2 class="card-title">✨ Create Account</h2>
-            <div class="form-group">
-                <label for="regFirstName">First Name:</label>
-                <input type="text" id="regFirstName" placeholder="John" required>
-            </div>
-            <div class="form-group">
-                <label for="regLastName">Last Name:</label>
-                <input type="text" id="regLastName" placeholder="Doe" required>
-            </div>
-            <div class="form-group">
-                <label for="regEmail">Email:</label>
-                <input type="email" id="regEmail" placeholder="user@company.com" required>
-            </div>
-            <div class="form-group">
-                <label for="regPassword">Password:</label>
-                <input type="password" id="regPassword" required>
-            </div>
-            <div class="form-group">
-                <label for="regTenant">Organization:</label>
-                <select id="regTenant">
-                    <option value="acme-corp">Acme Corporation</option>
-                    <option value="beta-inc">Beta Industries</option>
-                    <option value="gamma-llc">Gamma LLC</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="regTier">Subscription Tier:</label>
-                <select id="regTier">
-                    <option value="basic">Basic (Free) - 50 daily messages</option>
-                    <option value="advanced">Advanced ($29/month) - 200 daily messages + MCP tools</option>
-                    <option value="premium">Premium ($99/month) - 1000 daily messages + Full MCP access</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="regRole">User Role:</label>
-                <select id="regRole">
-                    <option value="user">Regular User</option>
-                    <option value="admin">Admin (Cost Reports Access)</option>
-                </select>
-            </div>
-            <button class="btn-primary" onclick="register()">Create Account</button>
-            <div id="registerError" class="error"></div>
-            <div id="registerSuccess" class="success"></div>
-            
-            <div style="text-align: center; margin-top: 20px;">
-                <p style="color: var(--aws-gray); margin-bottom: 10px;">Already have an account?</p>
-                <button class="btn-secondary" onclick="showLoginForm()" style="width: 100%;">Back to Sign In</button>
-            </div>
+            <p style="color: var(--aws-gray); margin-top: 20px; text-align: center;">Accounts are provisioned by an administrator.</p>
             </div>
         </div>
 
@@ -542,76 +485,6 @@
             ClientId: CONFIG.clientId
         };
         const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
-
-        async function register() {
-            const firstName = document.getElementById('regFirstName').value;
-            const lastName = document.getElementById('regLastName').value;
-            const email = document.getElementById('regEmail').value;
-            const password = document.getElementById('regPassword').value;
-            const tenantId = document.getElementById('regTenant').value;
-            const role = document.getElementById('regRole').value;
-            
-            const attributeList = [
-                new AmazonCognitoIdentity.CognitoUserAttribute({
-                    Name: 'email',
-                    Value: email
-                }),
-                new AmazonCognitoIdentity.CognitoUserAttribute({
-                    Name: 'given_name',
-                    Value: firstName
-                }),
-                new AmazonCognitoIdentity.CognitoUserAttribute({
-                    Name: 'family_name',
-                    Value: lastName
-                }),
-                new AmazonCognitoIdentity.CognitoUserAttribute({
-                    Name: 'custom:tenant_id',
-                    Value: tenantId
-                }),
-                new AmazonCognitoIdentity.CognitoUserAttribute({
-                    Name: 'custom:subscription_tier',
-                    Value: document.getElementById('regTier').value
-                })
-            ];
-
-            userPool.signUp(email, password, attributeList, null, async (err, result) => {
-                if (err) {
-                    document.getElementById('registerError').textContent = err.message;
-                    return;
-                }
-                
-                // If admin role selected, add to admin group after verification
-                const isAdmin = role === 'admin';
-                
-                // Show verification code input safely
-                const successDiv = document.getElementById('registerSuccess');
-                successDiv.textContent = 'Registration successful! Please check your email for verification code.';
-                
-                if (isAdmin) {
-                    const adminMsg = document.createElement('div');
-                    const strongEl = document.createElement('strong');
-                    strongEl.style.color = '#dc3545';
-                    strongEl.textContent = '🔒 Admin access will be granted after verification';
-                    adminMsg.appendChild(strongEl);
-                    successDiv.appendChild(adminMsg);
-                }
-                
-                const verificationInput = document.createElement('input');
-                verificationInput.type = 'text';
-                verificationInput.id = 'verificationCode';
-                verificationInput.placeholder = 'Enter verification code';
-                verificationInput.style.cssText = 'margin: 10px 0; padding: 8px; width: 100%; border: 1px solid #ccc; border-radius: 4px;';
-                
-                const verifyButton = document.createElement('button');
-                verifyButton.textContent = 'Verify';
-                verifyButton.onclick = () => confirmSignUp(email, tenantId, isAdmin);
-                verifyButton.style.cssText = 'margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;';
-                
-                successDiv.appendChild(verificationInput);
-                successDiv.appendChild(verifyButton);
-                document.getElementById('registerError').textContent = '';
-            });
-        }
 
         async function login() {
             const email = document.getElementById('email').value;
@@ -1054,56 +927,6 @@
             }
         }
 
-        function confirmSignUp(email, tenantId, isAdmin) {
-            const verificationCode = document.getElementById('verificationCode').value;
-            
-            const userData = {
-                Username: email,
-                Pool: userPool
-            };
-            
-            const cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
-            
-            cognitoUser.confirmRegistration(verificationCode, true, async (err, result) => {
-                if (err) {
-                    document.getElementById('registerError').textContent = err.message;
-                    return;
-                }
-                
-                // If admin role, add to admin group
-                if (isAdmin) {
-                    try {
-                        const response = await fetch(`${CONFIG.apiUrl}/api/admin/add-to-group`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                email: email,
-                                tenant_id: tenantId
-                            })
-                        });
-                        
-                        if (response.ok) {
-                            document.getElementById('registerSuccess').textContent = 
-                                '✅ Email verified and admin access granted! You can now login with admin privileges.';
-                        } else {
-                            document.getElementById('registerSuccess').textContent = 
-                                '✅ Email verified! Admin access pending - contact support.';
-                        }
-                    } catch (error) {
-                        document.getElementById('registerSuccess').textContent = 
-                            '✅ Email verified! Admin access pending - contact support.';
-                    }
-                } else {
-                    document.getElementById('registerSuccess').textContent = 
-                        '✅ Email verified successfully! You can now login.';
-                }
-                
-                document.getElementById('registerError').textContent = '';
-            });
-        }
-
         async function getCostReport() {
             if (!currentUser) return;
             
@@ -1371,16 +1194,6 @@
             }
         }
 
-        function showRegisterForm() {
-            document.getElementById('loginForm').classList.remove('active');
-            document.getElementById('registerForm').classList.add('active');
-        }
-        
-        function showLoginForm() {
-            document.getElementById('registerForm').classList.remove('active');
-            document.getElementById('loginForm').classList.add('active');
-        }
-        
         function logout() {
             if (cognitoUser) {
                 cognitoUser.signOut();
@@ -1390,7 +1203,6 @@
             cognitoUser = null;
             
             document.getElementById('chatInterface').classList.remove('active');
-            document.getElementById('registerForm').classList.remove('active');
             document.getElementById('loginForm').classList.add('active');
             document.getElementById('chatBox').textContent = '';
             document.getElementById('usageInfo').textContent = '';
